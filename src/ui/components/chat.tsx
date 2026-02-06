@@ -69,7 +69,7 @@ export default function Chat({
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const router = useRouter();
+  const { push } = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -148,7 +148,7 @@ export default function Chat({
 
     if (res && res.success) {
       toast.success("Chat burned successfully");
-      router.push("/");
+      push("/");
     }
   }
 
@@ -159,11 +159,10 @@ export default function Chat({
     const res = await deleteContact(contact.id);
     if (res.success) {
       toast.success("Contact removed");
+      push("/");
     } else {
       toast.error(res.error || "Failed to remove contact");
     }
-
-    router.refresh();
   }
 
   useEffect(() => {
@@ -418,9 +417,9 @@ export default function Chat({
           )}
         </div>
 
-        <div className="flex gap-3 p-4 shrink-0">
+        <div className="flex gap-3 p-4 w-full">
           <div
-            className={`flex-1 h-12 rounded-md border ${styles.inputBorder} ${styles.inputBg} flex items-center pl-5 pr-2 gap-2`}
+            className={`relative w-full pl-4 max-w-full pr-28 h-12 rounded-md border ${styles.inputBorder} ${styles.inputBg} flex items-center gap-2`}
           >
             <input
               ref={inputRef}
@@ -428,53 +427,56 @@ export default function Chat({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 bg-transparent text-[15px] outline-none dark:text-white"
+              className="block bg-transparent  md:max-w-none w-full text-[15px] outline-none dark:text-white"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleSendMessage();
                 }
               }}
             />
-            <label
-              className="hover:opacity-75 cursor-pointer p-2"
-              aria-label="Attach a file"
-            >
-              <IconPaperclip
-                size={20}
-                className="text-zinc-500 dark:text-zinc-400"
-              />
-              <input type="file" className="hidden" />
-            </label>
 
-            <Popover.Root
-              open={emojiPickerOpen}
-              onOpenChange={setEmojiPickerOpen}
-            >
-              <Popover.Trigger
-                className="cursor-pointer p-2 hover:opacity-75"
-                aria-label="Send emoji"
+            <div className="absolute flex items-center gap-x-2 w-fit right-2 top-1">
+              <label
+                className="hover:opacity-75 cursor-pointer p-2"
+                aria-label="Attach a file"
               >
-                <IconMoodSmile
+                <IconPaperclip
                   size={20}
                   className="text-zinc-500 dark:text-zinc-400"
                 />
-              </Popover.Trigger>
-              <Popover.Content
-                side="top"
-                align="end"
-                sideOffset={12}
-                className="z-50 drop-shadow-xl"
+                <input type="file" className="hidden" />
+              </label>
+
+              <Popover.Root
+                open={emojiPickerOpen}
+                onOpenChange={setEmojiPickerOpen}
               >
-                <EmojiPicker
-                  onEmojiClick={(emoji) => {
-                    setInputValue((value) => (value += emoji.emoji));
-                    if (inputRef.current) {
-                      inputRef.current.focus();
-                    }
-                  }}
-                />
-              </Popover.Content>
-            </Popover.Root>
+                <Popover.Trigger
+                  className="cursor-pointer p-2 hover:opacity-75"
+                  aria-label="Send emoji"
+                >
+                  <IconMoodSmile
+                    size={20}
+                    className="text-zinc-500 dark:text-zinc-400"
+                  />
+                </Popover.Trigger>
+                <Popover.Content
+                  side="top"
+                  align="end"
+                  sideOffset={12}
+                  className="z-50 drop-shadow-xl"
+                >
+                  <EmojiPicker
+                    onEmojiClick={(emoji) => {
+                      setInputValue((value) => (value += emoji.emoji));
+                      if (inputRef.current) {
+                        inputRef.current.focus();
+                      }
+                    }}
+                  />
+                </Popover.Content>
+              </Popover.Root>
+            </div>
           </div>
 
           <button

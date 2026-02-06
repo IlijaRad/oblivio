@@ -33,10 +33,10 @@ export function Header({ requestCount = 0, user }: HeaderProps) {
         pathname === "/" ? "block" : "hidden lg:block",
       )}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <LogoHeader />
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 md:gap-4 flex-wrap">
           <ThemeSwitcher />
 
           <ContactRequestsDialog>

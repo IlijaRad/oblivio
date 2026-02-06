@@ -43,7 +43,7 @@ export function ContactRequestsDialog({
       <Dialog.Trigger asChild>{children}</Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-in fade-in" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw - 32px)] md:w-100 mx-4 bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl z-50 animate-in zoom-in-95 duration-200">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl z-50 animate-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-4">
             <Dialog.Title className="text-xl font-medium dark:text-white">
               Contact requests
