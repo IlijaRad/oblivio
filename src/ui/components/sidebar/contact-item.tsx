@@ -1,3 +1,5 @@
+"use client";
+
 import { addFriend } from "@/lib/actions/friends/add-friend";
 import { Contact } from "@/lib/actions/friends/get-contacts";
 import { SidebarContact } from "@/lib/definitions";
@@ -23,11 +25,12 @@ const ContactItem = ({
   const [isPending, startTransition] = useTransition();
 
   const handleAddFriend = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    if (isLink) {
+      e.stopPropagation();
+    }
 
     startTransition(async () => {
       const result = await addFriend(contact.username);
-
       if (result.success) {
         toast.success(`Friend request sent to ${contact.username}`);
       } else {
@@ -56,7 +59,7 @@ const ContactItem = ({
     const after = name.slice(index + query.length);
 
     return (
-      <span className="text-[16px] text-[#1E1E1E]">
+      <span className="text-[16px] text-[#1E1E1E] dark:text-white">
         <span className="font-semibold">
           {before}
           {match}
@@ -66,15 +69,14 @@ const ContactItem = ({
     );
   };
 
-  return (
-    <Link
-      href={isLink ? `/${contact.id}` : "?"}
-      className={`h-9.5 rounded-md border flex items-center px-1 cursor-pointer ${
-        isActive
-          ? "border-[#944C16] bg-zinc-50 dark:bg-white/5"
-          : "border-[#989898] bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-white/5"
-      }`}
-    >
+  const containerClassName = `h-9.5 rounded-md border flex items-center px-1 transition-colors ${
+    isActive
+      ? "border-[#944C16] bg-zinc-50 dark:bg-white/5"
+      : "border-[#989898] bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-white/5"
+  } ${isLink ? "cursor-pointer" : "cursor-default"}`;
+
+  const InnerContent = (
+    <>
       <div className="relative shrink-0">
         {contact.avatarKey ? (
           <div className="w-7.75 h-7.5 rounded-sm overflow-hidden relative">
@@ -103,6 +105,7 @@ const ContactItem = ({
 
       {showAddButton && (
         <button
+          type="button"
           onClick={handleAddFriend}
           disabled={isPending}
           className="shrink-0 size-6 rounded-sm border border-[#989898] bg-[#F1F1F1] dark:bg-zinc-800 dark:border-white/20 flex items-center justify-center mr-1 hover:bg-[#E5E5E5] dark:hover:bg-white/10 transition-colors disabled:opacity-50 cursor-pointer"
@@ -116,8 +119,18 @@ const ContactItem = ({
           )}
         </button>
       )}
-    </Link>
+    </>
   );
+
+  if (isLink) {
+    return (
+      <Link href={`/${contact.id}`} className={containerClassName}>
+        {InnerContent}
+      </Link>
+    );
+  }
+
+  return <div className={containerClassName}>{InnerContent}</div>;
 };
 
 export default ContactItem;

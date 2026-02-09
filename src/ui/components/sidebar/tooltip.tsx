@@ -1,71 +1,60 @@
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { useState } from "react";
+"use client";
 
-const ClickTooltip = ({ onClick }: { onClick: () => Promise<void> }) => {
+import IconCopy from "@/ui/icons/icon-copy";
+import * as Popover from "@radix-ui/react-popover";
+import { useEffect, useRef, useState } from "react";
+
+export default function ClickTooltip({
+  onClick,
+}: {
+  onClick: () => Promise<void> | void;
+}) {
   const [open, setOpen] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleTriggerClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleCopy = async () => {
+    await onClick();
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+
     setOpen(true);
-    onClick();
-  };
-
-  const handleContentPointerDownOutside = (
-    event: CustomEvent<{ originalEvent: PointerEvent }>,
-  ) => {
-    event.preventDefault();
-    setOpen(false);
+    timerRef.current = setTimeout(() => {
+      setOpen(false);
+    }, 2000);
   };
 
   return (
-    <Tooltip.Provider>
-      <Tooltip.Root open={open} onOpenChange={setOpen}>
-        <Tooltip.Trigger
-          onClick={handleTriggerClick}
-          className="absolute top-2 right-2 cursor-pointer"
-          type="button"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M9 2C7.89687 2 7 2.89687 7 4V12C7 13.1031 7.89687 14 9 14H15C16.1031 14 17 13.1031 17 12V5.73125C17 5.1875 16.7781 4.66562 16.3844 4.2875L14.5813 2.55625C14.2094 2.2 13.7125 2 13.1969 2H9ZM5 6C3.89688 6 3 6.89687 3 8V16C3 17.1031 3.89688 18 5 18H11C12.1031 18 13 17.1031 13 16V15.5H11V16H5V8H5.5V6H5Z"
-              fill="url(#paint0_linear_106_730)"
-            />
-            <defs>
-              <linearGradient
-                id="paint0_linear_106_730"
-                x1="3"
-                y1="18"
-                x2="8.90884"
-                y2="17.8096"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop className="[stop-color:#944C16] dark:[stop-color:#fff]" />
-                <stop
-                  offset="1"
-                  className="[stop-color:#0D0D0F] dark:[stop-color:#fff]"
-                />
-              </linearGradient>
-            </defs>
-          </svg>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content
-            onPointerDownOutside={handleContentPointerDownOutside}
-            className="bg-[#333] text-white p-2 rounded-sm z-100 relative"
-          >
-            <p>Copied!</p>
-            <Tooltip.Arrow />
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    </Tooltip.Provider>
-  );
-};
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        type="button"
+        onClick={handleCopy}
+        className="absolute top-2 right-2 cursor-pointer outline-none hover:opacity-80 transition-opacity"
+        aria-label="Copy invite link"
+      >
+        <IconCopy />
+      </Popover.Trigger>
 
-export default ClickTooltip;
+      <Popover.Portal>
+        <Popover.Content
+          side="top"
+          sideOffset={5}
+          align="center"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => {
+            if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+          }}
+          className="bg-zinc-800 text-white text-[12px] px-2 py-1 rounded shadow-md z-100 animate-in fade-in zoom-in-95 duration-150"
+        >
+          Copied!
+          <Popover.Arrow className="fill-zinc-800" />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}

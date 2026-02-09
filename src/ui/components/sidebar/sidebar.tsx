@@ -1,19 +1,16 @@
 "use client";
 
-import { generateInviteLink } from "@/lib/actions/friends/generate-invite-link";
 import { getContacts } from "@/lib/actions/friends/get-contacts";
 import { getFriends } from "@/lib/actions/friends/get-friends";
 import { searchFriends } from "@/lib/actions/friends/search";
 import { SelectedContact } from "@/lib/definitions";
-import * as Dialog from "@radix-ui/react-dialog";
-import { IconPlus } from "@tabler/icons-react";
+
+import { IconSearch } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
-import IconButton from "../icon-button";
+import AddContactModal from "./add-contact-modal";
 import ContactItem from "./contact-item";
-import ClickTooltip from "./tooltip";
 
 export type SidebarContact = SelectedContact & {
   email?: string | null;
@@ -22,16 +19,10 @@ export type SidebarContact = SelectedContact & {
 
 export function Sidebar() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [token, setToken] = useState("");
   const [friends, setFriends] = useState<SidebarContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [suggestions, setSuggestions] = useState<SidebarContact[]>([]);
   const pathname = usePathname();
-
-  const shareLink =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/invite/${token}`
-      : "";
 
   useEffect(() => {
     async function initData() {
@@ -98,33 +89,6 @@ export function Sidebar() {
 
   const isSearching = searchQuery.trim().length > 0;
 
-  async function getInviteLink() {
-    const res = await generateInviteLink();
-    if (res && "token" in res) {
-      setToken(res.token);
-    }
-  }
-
-  async function handleShareLink() {
-    if (!token) return;
-    const text = `Add me on Oblivio: ${shareLink}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "Friend invite", text, url: shareLink });
-      } catch {}
-    } else {
-      toast.error("Share option is unsupported by your browser!");
-    }
-  }
-
-  async function copyInvite() {
-    if (!token) return;
-    try {
-      await navigator.clipboard.writeText(shareLink);
-      toast.success("Link copied!");
-    } catch {}
-  }
-
   return (
     <aside
       className={twMerge(
@@ -137,99 +101,7 @@ export function Sidebar() {
       <div className="w-full h-[calc(100vh-77px)] bg-white dark:bg-zinc-900 rounded-md flex flex-col">
         <div className="px-3 py-4 flex items-center justify-between">
           <h2 className="text-xl font-normal">Contacts</h2>
-          <Dialog.Root>
-            <Dialog.Trigger
-              className="w-8.75 h-8.25 rounded-md border border-black/60 flex items-center justify-center hover:bg-opacity-80 transition-colors"
-              aria-label="Add contact"
-            >
-              <IconPlus size={20} />
-            </Dialog.Trigger>
-            <Dialog.Portal>
-              <Dialog.Overlay className="data-[state=closed]:animate-overlayExit data-[state=open]:animate-overlayShow bg-black/80 fixed inset-0 z-50 cursor-pointer" />
-              <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-32px)] md:w-full md:max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 dark:bg-zinc-900 outline-none">
-                <Dialog.Title className="hidden">Add contact</Dialog.Title>
-                <div className="flex pb-4 border-b border-b-black/20 dark:border-b-white justify-between items-center">
-                  <span className="text-xl text-gray-900 dark:text-white">
-                    Add new contact
-                  </span>
-                  <Dialog.Close asChild>
-                    <IconButton className="border-0 -mr-2 text-zinc-900 dark:text-white">
-                      <svg
-                        width="23"
-                        height="23"
-                        viewBox="0 0 23 23"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          fill="currentColor"
-                          d="M6.58012 4.9378C6.1309 4.48858 5.40137 4.48858 4.95215 4.9378C4.50293 5.38702 4.50293 6.11655 4.95215 6.56577L9.88996 11.5L4.95574 16.4378C4.50652 16.887 4.50652 17.6165 4.95574 18.0658C5.40496 18.515 6.13449 18.515 6.58371 18.0658L11.5179 13.128L16.4557 18.0622C16.905 18.5114 17.6345 18.5114 18.0837 18.0622C18.5329 17.613 18.5329 16.8834 18.0837 16.4342L13.1459 11.5L18.0801 6.56217C18.5293 6.11295 18.5293 5.38342 18.0801 4.9342C17.6309 4.48499 16.9014 4.48499 16.4521 4.9342L11.5179 9.87202L6.58012 4.9378Z"
-                        />
-                      </svg>
-                    </IconButton>
-                  </Dialog.Close>
-                </div>
-                <div className="mt-4">
-                  If you can’t find your friend via search, You can send an
-                  invite link.
-                </div>
-                <button
-                  onClick={getInviteLink}
-                  type="submit"
-                  className="text-medium mt-4 h-11 w-full bg-linear-to-r from-[#944C16] via-[#0D0D0F] via-[40.75%] to-[#0D0D0F] cursor-pointer rounded-md dark:to-white dark:via-none dark:text-gray-950 bg-gray-900 px-3.5 text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Generate invite link
-                </button>
-                {token && (
-                  <div>
-                    <div className="mt-5 w-full h-px bg-[#BABABA]" />
-                    <div className="relative">
-                      <input
-                        readOnly
-                        value={shareLink}
-                        className="block text-zinc-900 dark:text-white font-medium pl-3 pr-10 mt-5 h-9.5 dark:border-white border-black/20 w-full rounded-md border text-ellipsis"
-                      />
-                      <ClickTooltip onClick={copyInvite} />
-                    </div>
-                    <button
-                      onClick={handleShareLink}
-                      className="w-full cursor-pointer h-11 px-6 mt-9 rounded-md font-medium border border-[rgba(148,76,22,1)] flex items-center gap-x-2 justify-center text-[rgba(148,76,22,1)] dark:text-white dark:border-white"
-                    >
-                      Share invite link
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M13.0156 2.74995V4.99995H11.0156C8.53125 4.99995 6.51562 7.01557 6.51562 9.49995C6.51562 12.4187 9.10313 13.7125 9.65938 13.9562C9.72813 13.9874 9.80313 13.9999 9.88125 13.9999H9.95938C10.2656 13.9999 10.5156 13.7499 10.5156 13.4437C10.5156 13.1843 10.3313 12.9593 10.1156 12.8093C9.8375 12.6156 9.51562 12.2406 9.51562 11.5437C9.51562 10.1374 10.6562 8.99682 12.0625 8.99682H13.0156V11.2468C13.0156 11.5499 13.1969 11.8249 13.4781 11.9406C13.7594 12.0562 14.0813 11.9937 14.2969 11.7781L18.5469 7.52807C18.8406 7.23432 18.8406 6.75933 18.5469 6.4687L14.2969 2.2187C14.0813 2.00307 13.7594 1.94057 13.4781 2.0562C13.1969 2.17182 13.0156 2.44682 13.0156 2.74995ZM4.51562 4.99995C3.13437 4.99995 2.01562 6.1187 2.01562 7.49995V15.4999C2.01562 16.8812 3.13437 18 4.51562 18H12.5156C13.8969 18 15.0156 16.8812 15.0156 15.4999V14.4999C15.0156 13.9468 14.5688 13.4999 14.0156 13.4999C13.4625 13.4999 13.0156 13.9468 13.0156 14.4999V15.4999C13.0156 15.7749 12.7906 15.9999 12.5156 15.9999H4.51562C4.24062 15.9999 4.01562 15.7749 4.01562 15.4999V7.49995C4.01562 7.22495 4.24062 6.99995 4.51562 6.99995H5.01562C5.56875 6.99995 6.01562 6.55307 6.01562 5.99995C6.01562 5.44683 5.56875 4.99995 5.01562 4.99995H4.51562Z"
-                          fill="url(#paint0_linear_106_783)"
-                        />
-                        <defs>
-                          <linearGradient
-                            id="paint0_linear_106_783"
-                            x1="2.01562"
-                            y1="18"
-                            x2="9.08263"
-                            y2="17.7275"
-                            gradientUnits="userSpaceOnUse"
-                          >
-                            <stop className="[stop-color:#944C1] dark:[stop-color:#fff]" />
-                            <stop
-                              offset="1"
-                              className="[stop-color:#0D0D0] dark:[stop-color:#fff]"
-                            />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
+          <AddContactModal />
         </div>
 
         <div>
@@ -244,23 +116,11 @@ export function Sidebar() {
                   isSearching ? "border-[#1E1E1E]" : "border-[#989898]"
                 } bg-[#F1F1F1] text-base text-[#1E1E1E] dark:border-white/70 dark:bg-transparent placeholder:text-[#989898] focus:outline-none dark:focus:border-white focus:border-[#1E1E1E] dark:text-gray-200`}
               />
-              <svg
-                className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M15 8.5C15 9.93437 14.5344 11.2594 13.75 12.3344L17.7062 16.2938C18.0969 16.6844 18.0969 17.3188 17.7062 17.7094C17.3156 18.1 16.6812 18.1 16.2906 17.7094L12.3344 13.75C11.2594 14.5344 9.93437 15 8.5 15C4.90937 15 2 12.0906 2 8.5C2 4.90937 4.90937 2 8.5 2C12.0906 2 15 4.90937 15 8.5ZM8.5 13C10.9844 13 13 10.9844 13 8.5C13 6.01562 10.9844 4 8.5 4C6.01562 4 4 6.01562 4 8.5C4 10.9844 6.01562 13 8.5 13Z"
-                  fill="#989898"
-                />
-              </svg>
+              <IconSearch className="absolute size-5 text-[#989898] right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
-          {!isSearching && (
+          {/* {!isSearching && (
             <div className="px-4 pb-4">
               <button className="text-medium h-11 w-full flex items-center justify-center gap-2 bg-linear-to-r from-[#944C16] via-[#0D0D0F] via-[40.75%] dark:text-gray-950 to-[#0D0D0F] cursor-pointer rounded-md bg-gray-900 px-3.5 text-white disabled:cursor-not-allowed disabled:opacity-50 dark:via-none dark:to-white">
                 New group
@@ -279,7 +139,7 @@ export function Sidebar() {
                 </svg>
               </button>
             </div>
-          )}
+          )} */}
         </div>
 
         <div className="px-4 pb-6 flex flex-col min-h-0">
@@ -379,9 +239,11 @@ export function Sidebar() {
   );
 }
 
-const ContactSkeleton = () => (
-  <div className="h-9.5 w-full rounded-md border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-800/20 animate-pulse flex items-center px-1">
-    <div className="w-7.75 h-7.5 rounded-sm bg-zinc-200 dark:bg-zinc-700 shrink-0" />
-    <div className="ml-2 h-3 w-24 bg-zinc-200 dark:bg-zinc-700 rounded-full" />
-  </div>
-);
+function ContactSkeleton() {
+  return (
+    <div className="h-9.5 w-full rounded-md border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-800/20 animate-pulse flex items-center px-1">
+      <div className="w-7.75 h-7.5 rounded-sm bg-zinc-200 dark:bg-zinc-700 shrink-0" />
+      <div className="ml-2 h-3 w-24 bg-zinc-200 dark:bg-zinc-700 rounded-full" />
+    </div>
+  );
+}

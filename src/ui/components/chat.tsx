@@ -30,6 +30,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import IconCamera from "../icons/icon-camera";
+import IconLock from "../icons/icon-lock";
+import IconPhone from "../icons/icon-phone";
+import IconButton from "./icon-button";
 
 type Theme = "default" | "modern";
 
@@ -266,28 +270,18 @@ export default function Chat({
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="size-9 rounded-md bg-green-500/90 hover:bg-green-600 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-                <path
-                  d="M7.35657 2.92031C7.09735 2.30016 6.42142 1.97203 5.77829 2.14594L5.59782 2.19516C3.47814 2.77266 1.66689 4.82672 2.19517 7.32703C3.41251 13.0692 7.93079 17.5875 13.673 18.8048C16.1766 19.3364 18.2274 17.5219 18.8049 15.4022L18.8541 15.2217C19.0313 14.5753 18.6999 13.8994 18.083 13.6434L14.8903 12.3145C14.3489 12.0881 13.7222 12.2456 13.3481 12.7017L12.0816 14.2505C9.77486 13.1053 7.91767 11.1891 6.85126 8.83641L8.30157 7.65516C8.75767 7.28438 8.91189 6.65766 8.68876 6.11297L7.35657 2.92031Z"
-                  fill="white"
-                />
-              </svg>
-            </button>
-            <button className="size-9 rounded-md bg-blue-500/90 hover:bg-blue-600 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-                <path
-                  d="M4.2001 4.2C3.04182 4.2 2.1001 5.14172 2.1001 6.3V14.7C2.1001 15.8583 3.04182 16.8 4.2001 16.8H12.6001C13.7584 16.8 14.7001 15.8583 14.7001 14.7V6.3C14.7001 5.14172 13.7584 4.2 12.6001 4.2H4.2001ZM16.2751 13.125L18.6868 15.0544C18.8246 15.1659 18.9953 15.225 19.1724 15.225C19.6023 15.225 19.9501 14.8772 19.9501 14.4473V6.55265C19.9501 6.12281 19.6023 5.775 19.1724 5.775C18.9953 5.775 18.8246 5.83406 18.6868 5.94562L16.2751 7.875V13.125Z"
-                  fill="white"
-                />
-              </svg>
-            </button>
+            <IconButton className="size-9 bg-green-500/90 hover:bg-green-600">
+              <IconPhone />
+            </IconButton>
+            <IconButton className="size-9 bg-blue-500/90 hover:bg-blue-600">
+              <IconCamera />
+            </IconButton>
 
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button className="size-9 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors flex items-center justify-center outline-none">
+                <IconButton className="size-9 hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
                   <IconDotsVertical size={20} className={styles.headerText} />
-                </button>
+                </IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content
@@ -499,42 +493,31 @@ export default function Chat({
   );
 }
 
-const EmptyState = ({
+function EmptyState({
   contact,
   styles,
 }: {
   contact: SelectedContact;
   styles: ChatStyles;
-}) => (
-  <div className="flex flex-col items-center justify-center h-full px-8 text-center animate-in fade-in zoom-in-95 duration-500">
-    <div className="size-20 rounded-full bg-transparent flex items-center justify-center mb-4 shadow-sm border border-black/5 dark:border-white/5">
-      <svg
-        width="32"
-        height="32"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-zinc-400"
-      >
-        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-      </svg>
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-8 text-center animate-in fade-in zoom-in-95 duration-500">
+      <div className="size-20 rounded-full bg-transparent flex items-center justify-center mb-4 shadow-sm border border-black/5 dark:border-white/5">
+        <IconLock />
+      </div>
+      <h3 className={`text-lg font-medium ${styles.headerText}`}>
+        No messages yet
+      </h3>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-60">
+        Say hi to&nbsp;
+        <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+          @{contact.username}
+        </span>
+        &nbsp; to start the conversation!
+      </p>
     </div>
-    <h3 className={`text-lg font-medium ${styles.headerText}`}>
-      No messages yet
-    </h3>
-    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-60">
-      Say hi to&nbsp;
-      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-        @{contact.username}
-      </span>
-      &nbsp; to start the conversation!
-    </p>
-  </div>
-);
+  );
+}
 
 function MessageContent({
   message,

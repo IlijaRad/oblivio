@@ -59,7 +59,7 @@ export async function register(
     }
 
     registrationSuccessful = true;
-  } catch (err) {
+  } catch {
     return {
       errors: { server: ["Unable to connect to service."] },
       inputs: { username, email: emailRaw },
