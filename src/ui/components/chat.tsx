@@ -416,12 +416,18 @@ export default function Chat({
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current;
 
-      scrollContainer.scrollTo({
-        top: scrollContainer.scrollHeight,
-        behavior: "smooth",
-      });
+      const isNearBottom =
+        scrollContainer.scrollHeight - scrollContainer.scrollTop <=
+        scrollContainer.clientHeight + 400;
+
+      if (isNearBottom) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: "smooth",
+        });
+      }
     }
-  }, [messages]);
+  }, [messages.length]);
 
   const styles = themeStyles[theme];
 
