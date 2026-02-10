@@ -8,9 +8,29 @@ export async function sendMessage(
   toUserId: string,
   body: string,
   deviceId: string,
+  attachmentData?: {
+    attachmentKey: string;
+    attachmentType: "image" | "video" | "audio" | "file";
+    attachmentName?: string;
+    attachmentSize?: number;
+  },
 ) {
   const headers = await getDefaultHeaders();
   const bearer = (await cookies()).get(AUTHENTICATION_COOKIE_NAME)?.value ?? "";
+  const payload = {
+    toUserId,
+    body,
+    deviceId,
+  };
+
+  if (attachmentData) {
+    Object.assign(payload, {
+      attachmentKey: attachmentData.attachmentKey,
+      attachmentType: attachmentData.attachmentType,
+      attachmentName: attachmentData.attachmentName,
+      attachmentSize: attachmentData.attachmentSize,
+    });
+  }
 
   try {
     const response = await fetch(
@@ -22,11 +42,7 @@ export async function sendMessage(
           Authorization: `Bearer ${bearer}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          toUserId,
-          body,
-          deviceId,
-        }),
+        body: JSON.stringify(payload),
       },
     );
 

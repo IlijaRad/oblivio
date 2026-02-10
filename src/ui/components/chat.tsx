@@ -4,7 +4,9 @@ import { useWebSocket } from "@/context/WebSocketProvider";
 import { deleteContact } from "@/lib/actions/friends/remove-friend";
 import { burnChat } from "@/lib/actions/thread/burn";
 import { getChat } from "@/lib/actions/thread/get-chat";
+import { markAsSeen } from "@/lib/actions/thread/seen";
 import { sendMessage } from "@/lib/actions/thread/send-message";
+import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
 import {
   GetChatResult,
   isImageAttachment,
@@ -83,6 +85,10 @@ export default function Chat({
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
   const { addListener } = useWebSocket();
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [theme, setTheme] = useState<Theme>("default");
+  const [isSending, setIsSending] = useState(false);
 
   const contactAvatar = contact.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
@@ -91,9 +97,6 @@ export default function Chat({
   const myAvatarUrl = currentUser.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(currentUser.avatarKey)}`
     : null;
-
-  const [theme, setTheme] = useState<Theme>("default");
-  const [isSending, setIsSending] = useState(false);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isSending) return;
@@ -131,12 +134,106 @@ export default function Chat({
     }
   };
 
+  async function uploadToS3(file: File): Promise<{ key: string } | null> {
+    try {
+      const normalizedType = (file.type || "application/octet-stream").split(
+        ";",
+      )[0];
+
+      const data = await getPresignedUploadUrl({
+        folder: "uploads",
+        contentType: normalizedType,
+        contentLength: file.size,
+      });
+
+      if (data.error || !data.url) {
+        toast.error(data.error || "Upload failed");
+        return null;
+      }
+
+      const putUrl: string = data.url;
+      const key: string = data.key;
+
+      const res = await fetch(putUrl, {
+        method: "PUT",
+        headers: { "Content-Type": normalizedType },
+        body: file,
+      });
+
+      if (!res.ok) {
+        toast.error(`Upload failed (HTTP ${res.status})`);
+        return null;
+      }
+
+      return { key };
+    } catch (e) {
+      console.error("Upload failed", e);
+      toast.error("Upload failed");
+      return null;
+    }
+  }
+
+  async function handleFileUpload(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+
+    try {
+      const mime = file.type || "";
+      let attachmentType: "image" | "video" | "audio" | "file" = "file";
+
+      if (mime.startsWith("image/")) attachmentType = "image";
+      else if (mime.startsWith("video/")) attachmentType = "video";
+      else if (mime.startsWith("audio/")) attachmentType = "audio";
+
+      const upload = await uploadToS3(file);
+      if (!upload) return;
+
+      const deviceId = await getOrCreateDeviceId();
+      const result = await sendMessage(contact.id, "", deviceId, {
+        attachmentKey: upload.key,
+        attachmentType: attachmentType,
+        attachmentName: file.name,
+        attachmentSize: file.size,
+      });
+
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        const newMessage: Message = {
+          id: result.id,
+          fromUserId: result.fromUserId,
+          toUserId: result.toUserId,
+          body: result.body,
+          createdAt: result.createdAt,
+          readAt: result.readAt ?? null,
+          attachment: result.attachment ?? null,
+        };
+
+        setMessages((prev) => [...prev, newMessage]);
+
+        setTimeout(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        }, 50);
+      }
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
   useEffect(() => {
     async function loadThread() {
       const response = (await getChat(contact.id)) as GetChatResult;
 
       if (response && "items" in response) {
         setMessages(response.items);
+        handleMarkAsSeen(response.items);
 
         setTimeout(() => {
           if (scrollRef.current) {
@@ -206,6 +303,12 @@ export default function Chat({
 
       if (!payload.id) return;
 
+      const isFromContact = payload.fromUserId === contact.id;
+
+      if (isFromContact) {
+        markAsSeen(contact.id, new Date(payload.createdAt).getTime());
+      }
+
       const isForThisChat =
         (payload.fromUserId === currentUser.id &&
           payload.toUserId === contact.id) ||
@@ -222,6 +325,18 @@ export default function Chat({
 
     return remove;
   }, [contact.id, currentUser.id, addListener]);
+
+  const handleMarkAsSeen = async (msgs: Message[]) => {
+    if (msgs.length === 0) return;
+
+    const lastReceived = [...msgs]
+      .reverse()
+      .find((m) => m.fromUserId === contact.id);
+
+    if (lastReceived) {
+      await markAsSeen(contact.id, new Date(lastReceived.createdAt).getTime());
+    }
+  };
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
@@ -420,7 +535,7 @@ export default function Chat({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Type a message..."
-              className="block bg-transparent  md:max-w-none w-full text-[15px] outline-none dark:text-white"
+              className="block bg-transparent md:max-w-none w-full text-[15px] outline-none dark:text-white"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleSendMessage();
@@ -430,14 +545,21 @@ export default function Chat({
 
             <div className="absolute flex items-center gap-x-2 w-fit right-2 top-1">
               <label
-                className="hover:opacity-75 cursor-pointer p-2"
+                className={`hover:opacity-75 cursor-pointer p-2 ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
                 aria-label="Attach a file"
               >
                 <IconPaperclip
                   size={20}
                   className="text-zinc-500 dark:text-zinc-400"
                 />
-                <input type="file" className="hidden" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                />
               </label>
 
               <Popover.Root
@@ -492,10 +614,12 @@ export default function Chat({
           <button
             className="size-12 shrink-0 rounded-md bg-[linear-gradient(88deg,#944C16_0%,#0D0D0F_40.75%)] text-white flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale cursor-pointer"
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isSending}
+            disabled={
+              (!inputValue.trim() && !isUploading) || isSending || isUploading
+            }
             aria-label="Send message"
           >
-            {isSending ? (
+            {isSending || isUploading ? (
               <div className="size-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
             ) : inputValue.trim() ? (
               <IconSend size={22} />

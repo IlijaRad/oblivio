@@ -68,6 +68,7 @@ export type SidebarContact = {
   avatarKey?: string | null;
   email?: string | null;
   since?: string;
+  unreadCount?: number;
 };
 
 export interface User {

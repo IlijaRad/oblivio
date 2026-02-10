@@ -96,13 +96,11 @@ const ContactItem = ({
           </div>
         )}
       </div>
-
       <div className="flex-1 px-2 overflow-hidden">
         <div className="truncate dark:text-white text-zinc-900">
           {renderContactName(contact.username)}
         </div>
       </div>
-
       {showAddButton && (
         <button
           type="button"
@@ -119,6 +117,13 @@ const ContactItem = ({
           )}
         </button>
       )}
+      {contact.unreadCount && contact.unreadCount > 0 ? (
+        <div className="shrink-0 size-5 rounded-sm border border-[#C92100] bg-[rgba(201,33,0,0.3)] flex items-center justify-center mr-1">
+          <span className="text-[14px] font-semibold text-[#C92100]">
+            {contact.unreadCount > 99 ? "99+" : contact.unreadCount}
+          </span>
+        </div>
+      ) : null}
     </>
   );
 

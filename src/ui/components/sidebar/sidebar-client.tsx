@@ -1,5 +1,6 @@
 "use client";
 
+import { useWebSocket } from "@/context/WebSocketProvider";
 import { searchFriends } from "@/lib/actions/friends/search";
 import { SidebarContact } from "@/lib/definitions";
 import { IconSearch } from "@tabler/icons-react";
@@ -15,10 +16,50 @@ interface SidebarProps {
 
 export function SidebarClient({ initialFriends }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const friends = initialFriends;
   const [suggestions, setSuggestions] = useState<SidebarContact[]>([]);
   const pathname = usePathname();
   const router = useRouter();
+  const [friends, setFriends] = useState<SidebarContact[]>(() =>
+    initialFriends.map((f) => ({ ...f, unreadCount: 0 })),
+  );
+  const { addListener } = useWebSocket();
+
+  useEffect(() => {
+    setFriends(initialFriends);
+  }, [initialFriends]);
+
+  useEffect(() => {
+    const remove = addListener((payload) => {
+      if (payload.type === "seen" || payload.type === "friend") return;
+      if (!payload.fromUserId) return;
+
+      const messageFromId = payload.fromUserId;
+      const currentChatId = pathname.split("/").pop();
+
+      if (messageFromId !== currentChatId) {
+        setFriends((prev) =>
+          prev.map((f) =>
+            f.id === messageFromId
+              ? { ...f, unreadCount: (f.unreadCount || 0) + 1 }
+              : f,
+          ),
+        );
+      }
+    });
+
+    return remove;
+  }, [addListener, pathname]);
+
+  useEffect(() => {
+    const currentChatId = pathname.split("/").pop();
+    if (currentChatId) {
+      setFriends((prev) =>
+        prev.map((f) =>
+          f.id === currentChatId ? { ...f, unreadCount: 0 } : f,
+        ),
+      );
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
