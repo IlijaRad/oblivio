@@ -23,6 +23,7 @@ import {
   IconMicrophone,
   IconMoodSmile,
   IconPaperclip,
+  IconPlayerStopFilled,
   IconSend,
   IconX,
 } from "@tabler/icons-react";
@@ -36,6 +37,7 @@ import { toast } from "sonner";
 import IconCamera from "../icons/icon-camera";
 import IconLock from "../icons/icon-lock";
 import IconPhone from "../icons/icon-phone";
+import AudioPlayer from "./audio-player";
 import IconButton from "./icon-button";
 
 type Theme = "default" | "modern";
@@ -89,6 +91,11 @@ export default function Chat({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [theme, setTheme] = useState<Theme>("default");
   const [isSending, setIsSending] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const contactAvatar = contact.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
@@ -338,6 +345,65 @@ export default function Chat({
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e: BlobEvent) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        if (audioBlob.size < 1000) return;
+
+        const file = new File([audioBlob], `voice-${Date.now()}.webm`, {
+          type: "audio/webm",
+        });
+
+        const upload = await uploadToS3(file);
+        if (upload) {
+          const deviceId = await getOrCreateDeviceId();
+          const result = await sendMessage(contact.id, "", deviceId, {
+            attachmentKey: upload.key,
+            attachmentType: "audio",
+            attachmentName: file.name,
+            attachmentSize: file.size,
+          });
+
+          if (!("error" in result)) {
+            setMessages((prev) => [...prev, result as Message]);
+          }
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+      toast.error("Microphone access denied");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setRecordingTime(0);
+    }
+  };
+
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     localStorage.setItem(THEME_STORAGE_KEY, newTheme);
@@ -529,19 +595,27 @@ export default function Chat({
           <div
             className={`relative w-full pl-4 max-w-full pr-28 h-12 rounded-md border ${styles.inputBorder} ${styles.inputBg} flex items-center gap-2`}
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Type a message..."
-              className="block bg-transparent md:max-w-none w-full text-[15px] outline-none dark:text-white"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSendMessage();
-                }
-              }}
-            />
+            {isRecording ? (
+              <div className="flex items-center gap-2 w-full animate-pulse">
+                <div className="size-2 rounded-full bg-red-500" />
+                <span className="text-sm font-medium text-red-500">
+                  Recording Voice... {Math.floor(recordingTime / 60)}:
+                  {(recordingTime % 60).toString().padStart(2, "0")}
+                </span>
+              </div>
+            ) : (
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Type a message..."
+                className="block bg-transparent md:max-w-none w-full text-[15px] outline-none dark:text-white"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSendMessage();
+                }}
+              />
+            )}
 
             <div className="absolute flex items-center gap-x-2 w-fit right-2 top-1">
               <label
@@ -613,14 +687,30 @@ export default function Chat({
 
           <button
             className="size-12 shrink-0 rounded-md bg-[linear-gradient(88deg,#944C16_0%,#0D0D0F_40.75%)] text-white flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale cursor-pointer"
-            onClick={handleSendMessage}
-            disabled={
-              (!inputValue.trim() && !isUploading) || isSending || isUploading
-            }
+            onClick={() => {
+              if (inputValue.trim()) handleSendMessage();
+            }}
+            onMouseDown={() => {
+              if (!inputValue.trim()) startRecording();
+            }}
+            onMouseUp={() => {
+              if (isRecording) stopRecording();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              if (!inputValue.trim()) startRecording();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              if (isRecording) stopRecording();
+            }}
+            disabled={isSending || isUploading}
             aria-label="Send message"
           >
             {isSending || isUploading ? (
               <div className="size-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+            ) : isRecording ? (
+              <IconPlayerStopFilled size={22} />
             ) : inputValue.trim() ? (
               <IconSend size={22} />
             ) : (
@@ -689,6 +779,16 @@ function MessageContent({
             {message.body}
           </p>
         )}
+      </div>
+    );
+  }
+
+  if (message.attachment?.type === "audio") {
+    const audioUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(message.attachment.key)}`;
+    return (
+      <div className="my-2">
+        <AudioPlayer src={audioUrl} />
+        {message.body && <p className="mt-2 text-[15px]">{message.body}</p>}
       </div>
     );
   }
