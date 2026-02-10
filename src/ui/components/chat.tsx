@@ -412,6 +412,17 @@ export default function Chat({
     localStorage.setItem(THEME_STORAGE_KEY, newTheme);
   };
 
+  useEffect(() => {
+    if (scrollRef.current) {
+      const scrollContainer = scrollRef.current;
+
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages]);
+
   const styles = themeStyles[theme];
 
   return (
@@ -780,6 +791,9 @@ function MessageContent({
             height={260}
             className="object-cover"
             unoptimized
+            onLoadingComplete={() => {
+              window.dispatchEvent(new Event("resize"));
+            }}
           />
         </div>
 
