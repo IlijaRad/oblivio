@@ -7,6 +7,7 @@ import { getChat } from "@/lib/actions/thread/get-chat";
 import { markAsSeen } from "@/lib/actions/thread/seen";
 import { sendMessage } from "@/lib/actions/thread/send-message";
 import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
+import { calls, CallState, IncomingOffer } from "@/lib/calls";
 import {
   GetChatResult,
   isImageAttachment,
@@ -15,6 +16,12 @@ import {
   User,
 } from "@/lib/definitions";
 import { getOrCreateDeviceId } from "@/lib/device";
+import {
+  isCallEvent,
+  isFriendEvent,
+  isMessageEvent,
+  isSeenEvent,
+} from "@/lib/websocket";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
 import {
@@ -33,6 +40,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 import IconCamera from "../icons/icon-camera";
@@ -48,7 +56,7 @@ const themeStyles = {
     chatBg: "bg-white dark:bg-zinc-900",
     sent: "bg-[linear-gradient(88deg,#944C16_0%,#0D0D0F_40.75%)]",
     sentText: "text-white",
-    received: "bg-gray-[#f1f1f1] dark:bg-zinc-800 shadow-sm",
+    received: "bg-[#f1f1f1] dark:bg-zinc-800 shadow-sm",
     receivedText: "text-gray-900 dark:text-white",
     time: "text-amber-600/80 dark:text-amber-500/80",
     inputBorder: "border-black/20 dark:border-white/20",
@@ -59,7 +67,7 @@ const themeStyles = {
     chatBg: "bg-white dark:bg-zinc-900",
     sent: "bg-gradient-to-r from-gray-700 to-gray-900",
     sentText: "text-white",
-    received: "bg-white dark:bg-zinc-800 shadow-sm",
+    received: "bg-[#f1f1f1] dark:bg-zinc-800 shadow-sm",
     receivedText: "text-zinc-900 dark:text-white",
     time: "text-gray-500 dark:text-gray-400",
     inputBorder: "border-black/20 dark:border-white/20",
@@ -75,9 +83,11 @@ const THEME_STORAGE_KEY = "chat-theme-preference";
 export default function Chat({
   contact,
   currentUser,
+  token,
 }: {
   contact: SelectedContact;
   currentUser: User;
+  token?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -99,6 +109,19 @@ export default function Chat({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [incoming, setIncoming] = useState<IncomingOffer | null>(null);
+  const [callState, setCallState] = useState<CallState>({
+    active: false,
+    connected: false,
+    hasVideo: false,
+    micMuted: false,
+    cameraOn: false,
+    callId: null,
+    withUserId: null,
+  });
+
+  const remoteRef = useRef<HTMLVideoElement | null>(null);
+  const localRef = useRef<HTMLVideoElement | null>(null);
 
   const contactAvatar = contact.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
@@ -257,6 +280,32 @@ export default function Chat({
     loadThread();
   }, [contact.id]);
 
+  useEffect(() => {
+    if (token) {
+      calls.setToken(token);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    calls.setIncomingHandler((offer) => {
+      console.log("Incoming call offer", offer);
+      setIncoming(offer);
+    });
+
+    const onStateChange = (e: Event) => {
+      const customEvent = e as CustomEvent<CallState>;
+      setCallState(customEvent.detail);
+    };
+
+    window.addEventListener("calls:accepted", () => setIncoming(null));
+    window.addEventListener("calls:state", onStateChange);
+
+    return () => {
+      window.addEventListener("calls:accepted", () => setIncoming(null));
+      window.removeEventListener("calls:state", onStateChange);
+    };
+  }, []);
+
   async function handleBurnChat() {
     const res = await burnChat(contact.id);
 
@@ -292,14 +341,14 @@ export default function Chat({
 
   useEffect(() => {
     const remove = addListener((payload) => {
-      if (payload.type === "seen") {
+      if (isSeenEvent(payload)) {
         if (String(payload.with) !== contact.id) return;
 
         setMessages((prev) =>
           prev.map((m) =>
             m.fromUserId === currentUser.id &&
             m.toUserId === String(payload.with) &&
-            new Date(m.createdAt).getTime() <= payload.upTo
+            m.createdAt <= payload.upTo
               ? { ...m, readAt: new Date(payload.upTo).toISOString() }
               : m,
           ),
@@ -307,32 +356,30 @@ export default function Chat({
         return;
       }
 
-      if (payload.type === "friend") {
-        return;
+      if (isFriendEvent(payload)) return;
+
+      if (isCallEvent(payload)) return;
+
+      if (isMessageEvent(payload)) {
+        const isForThisChat =
+          (payload.fromUserId === currentUser.id &&
+            payload.toUserId === contact.id) ||
+          (payload.fromUserId === contact.id &&
+            payload.toUserId === currentUser.id);
+
+        if (!isForThisChat) return;
+
+        if (payload.fromUserId === contact.id) {
+          markAsSeen(contact.id, payload.createdAt);
+        }
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === payload.id)) return prev;
+
+          return [...prev, payload];
+        });
       }
-
-      if (!payload.id) return;
-
-      const isFromContact = payload.fromUserId === contact.id;
-
-      if (isFromContact) {
-        markAsSeen(contact.id, new Date(payload.createdAt).getTime());
-      }
-
-      const isForThisChat =
-        (payload.fromUserId === currentUser.id &&
-          payload.toUserId === contact.id) ||
-        (payload.fromUserId === contact.id &&
-          payload.toUserId === currentUser.id);
-
-      if (!isForThisChat) return;
-
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === payload.id)) return prev;
-        return [...prev, payload];
-      });
     });
-
     return remove;
   }, [contact.id, currentUser.id, addListener]);
 
@@ -429,6 +476,14 @@ export default function Chat({
     }
   }, [messages.length]);
 
+  useEffect(() => {
+    if (!callState.active) return;
+
+    const r = remoteRef.current;
+    const l = localRef.current || undefined;
+    if (r) calls.attachElements(r, l);
+  }, [callState.active]);
+
   const styles = themeStyles[theme];
 
   return (
@@ -470,10 +525,32 @@ export default function Chat({
           </div>
 
           <div className="flex items-center gap-2">
-            <IconButton className="size-9 bg-green-500/90 hover:bg-green-600">
+            <IconButton
+              className="size-9 bg-green-500/90 hover:bg-green-600"
+              onClick={async () => {
+                if (!contact) return;
+                try {
+                  await calls.startCall(contact.id, false);
+                } catch {
+                  toast.error("Call failed");
+                }
+              }}
+              aria-label="Start voice call"
+            >
               <IconPhone />
             </IconButton>
-            <IconButton className="size-9 bg-blue-500/90 hover:bg-blue-600">
+            <IconButton
+              className="size-9 bg-blue-500/90 hover:bg-blue-600"
+              onClick={async () => {
+                if (!contact) return;
+                try {
+                  await calls.startCall(contact.id, true);
+                } catch {
+                  toast.error("Video call failed");
+                }
+              }}
+              aria-label="Start video call"
+            >
               <IconCamera />
             </IconButton>
 
@@ -743,6 +820,116 @@ export default function Chat({
           </button>
         </div>
       </div>
+      {incoming &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-1000 p-6"
+          >
+            <div
+              className="bg-white dark:bg-zinc-900 rounded-xl p-6 max-w-sm w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-medium mb-2 dark:text-white">
+                Incoming call
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                From: {contact?.username || incoming.fromUserId}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  onClick={async () => {
+                    try {
+                      await calls.acceptOffer(incoming);
+                      setIncoming(null);
+                    } catch (e) {
+                      console.error(e);
+                      toast.error("Failed to accept call");
+                    }
+                  }}
+                >
+                  Accept
+                </button>
+                <button
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  onClick={() => {
+                    setIncoming(null);
+                  }}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {callState.active &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 bg-black z-2000 flex flex-col"
+          >
+            <div className="relative w-full h-full">
+              <video
+                ref={remoteRef}
+                autoPlay
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+
+              {callState.hasVideo && (
+                <video
+                  ref={localRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="absolute right-4 bottom-20 w-40 h-30 object-cover rounded-lg border-2 border-white/60"
+                />
+              )}
+
+              <div className="absolute top-4 left-4 text-white bg-black/40 px-3 py-2 rounded-lg">
+                <div>{callState.connected ? "Connected" : "Connecting..."}</div>
+                <div className="text-sm opacity-80">
+                  {contact?.username || callState.withUserId}
+                </div>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-4 p-6">
+                <button
+                  onClick={() => calls.toggleMic()}
+                  className={`px-6 py-3 rounded-full ${
+                    callState.micMuted ? "bg-red-500" : "bg-gray-700"
+                  } text-white`}
+                >
+                  {callState.micMuted ? "Unmute" : "Mute"}
+                </button>
+
+                {callState.hasVideo && (
+                  <button
+                    onClick={() => calls.toggleCamera()}
+                    className={`px-6 py-3 rounded-full ${
+                      callState.cameraOn ? "bg-gray-700" : "bg-red-500"
+                    } text-white`}
+                  >
+                    {callState.cameraOn ? "Camera Off" : "Camera On"}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => calls.endCall("hangup")}
+                  className="px-6 py-3 rounded-full bg-red-600 text-white"
+                >
+                  End Call
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

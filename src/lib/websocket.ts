@@ -1,4 +1,5 @@
 import { Centrifuge, Subscription } from "centrifuge";
+import { calls, RawIceCandidate, RawIceItem } from "./calls";
 import { Message } from "./definitions";
 
 const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
@@ -25,11 +26,62 @@ export type FriendEvent = {
   requestId?: string;
 };
 
+export type CallEvent =
+  | {
+      type: "call-offer";
+      callId: string;
+      fromUserId: string;
+      sdp: { type: string; sdp: string };
+      hasVideo: boolean;
+    }
+  | {
+      type: "call-answer";
+      callId: string;
+      fromUserId: string;
+      sdp: { type: string; sdp: string };
+    }
+  | {
+      type: "call-ice";
+      callId: string;
+      fromUserId: string;
+      candidate: RawIceCandidate;
+    }
+  | {
+      type: "ice-candidate";
+      callId: string;
+      fromUserId: string;
+      candidate: RawIceCandidate;
+    }
+  | {
+      type: "call-ice-batch";
+      callId: string;
+      fromUserId: string;
+      items: Array<RawIceItem>;
+    }
+  | { type: "call-end" | "call-cancel"; callId: string; fromUserId?: string };
+
 export type MessageEvent = Message & {
   type?: "message";
 };
 
-export type WebSocketPayload = MessageEvent | SeenEvent | FriendEvent;
+export type WebSocketPayload =
+  | MessageEvent
+  | SeenEvent
+  | FriendEvent
+  | CallEvent;
+
+export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
+  const callTypes = [
+    "call-offer",
+    "call-answer",
+    "call-ice",
+    "ice-candidate",
+    "call-ice-batch",
+    "call-end",
+    "call-cancel",
+  ];
+  return "type" in payload && callTypes.includes(payload.type as string);
+}
 
 export function isSeenEvent(payload: WebSocketPayload): payload is SeenEvent {
   return payload.type === "seen";
@@ -58,14 +110,6 @@ export function connectWebSocket(token: string) {
     debug: true,
   });
 
-  centrifuge.on("connected", (ctx) => {
-    console.log("WebSocket connected", ctx);
-  });
-
-  centrifuge.on("disconnected", (ctx) => {
-    console.log("WebSocket disconnected", ctx);
-  });
-
   centrifuge.connect();
   return centrifuge;
 }
@@ -74,16 +118,12 @@ export function subscribeUserChannel(
   userId: string,
   onMessage: (data: WebSocketPayload) => void,
 ) {
-  if (!centrifuge) {
-    return;
-  }
-
-  if (subscription) {
-    return;
-  }
+  if (!centrifuge || subscription) return;
 
   const channel = `conversation.${userId}`;
+  const callsChannel = `calls.${userId}`;
 
+  const callsSub = centrifuge.newSubscription(callsChannel);
   subscription = centrifuge.newSubscription(channel);
 
   subscription.on("publication", (ctx) => {
@@ -91,6 +131,15 @@ export function subscribeUserChannel(
     onMessage(payload);
   });
 
+  callsSub.on("publication", (ctx) => {
+    const payload = ctx.data as WebSocketPayload;
+    if ("fromUserId" in payload && payload.fromUserId === userId) return;
+    if (isCallEvent(payload)) {
+      calls.handleIncoming(payload);
+    }
+    onMessage(payload);
+  });
+  callsSub.subscribe();
   subscription.subscribe();
 }
 

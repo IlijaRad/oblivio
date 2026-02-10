@@ -32,15 +32,18 @@ export function WebSocketProvider({
     async function init() {
       try {
         const token = await getWebsocketToken();
-        if (!mounted) return;
+        if (!mounted || !token) return;
 
         connectWebSocket(token);
+
         subscribeUserChannel(userId, (payload) => {
           handlers.current.forEach((h) => {
             h(payload);
           });
         });
-      } catch {}
+      } catch (err) {
+        console.error("WebSocket init failed", err);
+      }
     }
 
     init();
@@ -53,7 +56,6 @@ export function WebSocketProvider({
 
   const addListener = (handler: MessageHandler) => {
     handlers.current.add(handler);
-
     return () => {
       handlers.current.delete(handler);
     };

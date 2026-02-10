@@ -24,18 +24,13 @@ export function HeaderClient({
 
   useEffect(() => {
     const remove = addListener((payload) => {
-      // Handle friend-related events
       if (isFriendEvent(payload)) {
         if (payload.event === "request") {
-          // Increment the badge count
           setRequestCount((prev) => prev + 1);
         } else if (payload.event === "accepted") {
-          // Decrement count when accepted via WebSocket
           setRequestCount((prev) => Math.max(0, prev - 1));
-          // Refresh to update contacts list
           router.refresh();
         } else if (payload.event === "unfriended") {
-          // Refresh to update contacts list
           router.refresh();
         }
       }
