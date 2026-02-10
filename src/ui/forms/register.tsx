@@ -2,9 +2,8 @@
 
 import { register } from "@/lib/actions/auth/register";
 import { FormState } from "@/lib/definitions";
-import { getOrCreateDeviceId } from "@/lib/device";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import IconButton from "../components/icon-button";
 import Input from "../components/input";
 import Label from "../components/label";
@@ -15,16 +14,9 @@ export default function RegisterForm() {
     null,
   );
   const [showPassword, setShowPassword] = useState(false);
-  const [deviceId, setDeviceId] = useState("");
-
-  useEffect(() => {
-    getOrCreateDeviceId().then(setDeviceId);
-  }, []);
 
   return (
     <form action={formAction} className="mt-7.5">
-      <input type="hidden" name="deviceId" value={deviceId} />
-
       <div>
         <Label htmlFor="username">Username</Label>
         <Input

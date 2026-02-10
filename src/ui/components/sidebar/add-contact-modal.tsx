@@ -1,6 +1,7 @@
 "use client";
 
 import { generateInviteLink } from "@/lib/actions/friends/generate-invite-link";
+import IconShare from "@/ui/icons/icon-share";
 import * as Dialog from "@radix-ui/react-dialog";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -37,6 +38,18 @@ export default function AddContactModal() {
     }
   }
 
+  async function handleShareLink() {
+    if (!token) return;
+    const text = `Add me on Oblivio: ${shareLink}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Friend invite", text, url: shareLink });
+      } catch {}
+    } else {
+      toast.error("Share option is unsupported by your browser!");
+    }
+  }
+
   async function copyInvite() {
     if (!token) return;
     try {
@@ -54,7 +67,7 @@ export default function AddContactModal() {
       }}
     >
       <Dialog.Trigger
-        className="w-8.75 h-8.25 rounded-md border border-black/60 flex items-center justify-center hover:bg-opacity-80 transition-colors"
+        className="size-8.5 rounded-md border dark:border-white border-black/60 flex items-center justify-center cursor-pointer"
         aria-label="Add contact"
       >
         <IconPlus size={20} />
@@ -73,7 +86,7 @@ export default function AddContactModal() {
             <Dialog.Title className="hidden">Add contact</Dialog.Title>
 
             <motion.div layout="position" transition={transition}>
-              <div className="flex pb-4 border-b border-b-black/20 dark:border-b-white justify-between items-center">
+              <div className="flex pb-4 border-b border-b-black/20 dark:border-b-white/20 justify-between items-center">
                 <span className="text-xl text-gray-900 dark:text-white">
                   Add new contact
                 </span>
@@ -108,26 +121,28 @@ export default function AddContactModal() {
                   exit={{ opacity: 0 }}
                   transition={transition}
                 >
-                  <div className="mt-5 w-full h-px bg-[#BABABA]" />
+                  <div className="mt-5 w-full h-px bg-black/20 dark:bg-white/20" />
 
                   <motion.div layout="position" transition={transition}>
                     <div className="relative">
                       <input
                         readOnly
                         value={token ? shareLink : "Generating..."}
-                        className={`block font-medium pl-3 pr-10 mt-5 h-9.5 dark:border-white border-black/20 w-full rounded-md border text-ellipsis transition-colors ${
+                        className={`block font-medium pl-3 pr-10 mt-5 h-9.5 dark:border-white/20 border-black/20 w-full rounded-md border text-ellipsis ${
                           !token
-                            ? "text-gray-400 animate-pulse"
+                            ? "text-gray-400"
                             : "text-zinc-900 dark:text-white"
                         }`}
                       />
                       {token && <ClickTooltip onClick={copyInvite} />}
                     </div>
                     <button
+                      onClick={handleShareLink}
                       disabled={!token}
                       className="w-full cursor-pointer h-11 px-6 mt-9 rounded-md font-medium border border-[rgba(148,76,22,1)] flex items-center gap-x-2 justify-center text-[rgba(148,76,22,1)] dark:text-white dark:border-white disabled:opacity-50"
                     >
                       Share invite link
+                      <IconShare />
                     </button>
                   </motion.div>
                 </motion.div>

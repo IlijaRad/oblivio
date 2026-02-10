@@ -1,6 +1,7 @@
 "use server";
 
 import { FormState } from "@/lib/definitions";
+import { getDefaultHeaders } from "../headers";
 import { login } from "./login";
 
 export async function register(
@@ -10,7 +11,6 @@ export async function register(
   const username = (formData.get("username") as string)?.trim() ?? "";
   const emailRaw = (formData.get("email") as string)?.trim() ?? "";
   const password = (formData.get("password") as string)?.trim() ?? "";
-  const deviceId = formData.get("deviceId") as string;
 
   if (!username || !password) {
     return {
@@ -34,16 +34,13 @@ export async function register(
 
   let registrationSuccessful = false;
 
+  const headers = await getDefaultHeaders();
+
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
       method: "POST",
       body: JSON.stringify(payload),
-      headers: {
-        "X-Device-Id": deviceId,
-        "X-App-Id": process.env.NEXT_PUBLIC_APP_ID || "",
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {

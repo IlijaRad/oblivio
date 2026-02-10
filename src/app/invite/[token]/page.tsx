@@ -2,8 +2,9 @@
 
 import { invite } from "@/lib/actions/friends/invite";
 import Logo from "@/ui/forms/logo";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -13,20 +14,24 @@ export default function Page({ params }: PageProps) {
   const resolvedParams = use(params);
   const token = resolvedParams.token;
 
-  const router = useRouter();
+  const { push } = useRouter();
   const [status, setStatus] = useState<"pending" | "ok" | "error">("pending");
   const [message, setMessage] = useState("Using invite...");
 
+  const hasRun = useRef(false);
+
   useEffect(() => {
     if (!token) return;
+    if (hasRun.current) return;
 
     const acceptInvite = async () => {
+      hasRun.current = true;
       const result = await invite(token);
 
       if (result.success) {
         setStatus("ok");
         setMessage("Friend request sent!");
-        setTimeout(() => router.push("/"), 1600);
+        setTimeout(() => push("/"), 1600);
       } else {
         setStatus("error");
         setMessage(result.error || "Invite invalid or expired");
@@ -34,7 +39,7 @@ export default function Page({ params }: PageProps) {
     };
 
     acceptInvite();
-  }, [token, router]);
+  }, [token, push]);
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4">
@@ -58,12 +63,12 @@ export default function Page({ params }: PageProps) {
         </div>
 
         <div className="mt-8">
-          <button
-            onClick={() => router.push("/")}
-            className="w-full h-11 bg-[linear-gradient(87.89deg,#944C16_0%,#0D0D0F_40.75%)] text-white rounded-md font-medium hover:opacity-90 transition-opacity cursor-pointer"
+          <Link
+            href="/"
+            className="w-full py-2 px-5 h-11 bg-[linear-gradient(87.89deg,#944C16_0%,#0D0D0F_40.75%)] text-white rounded-md font-medium dark:bg-[linear-gradient(83.78deg,#944C16_-27.94%,#FFFFFF_70.52%)] dark:text-gray-900 cursor-pointer"
           >
             Home
-          </button>
+          </Link>
         </div>
       </div>
 

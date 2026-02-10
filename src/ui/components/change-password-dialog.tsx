@@ -12,7 +12,13 @@ export function ChangePasswordDialog() {
 
   return (
     <Dialog.Root>
-      <Dialog.Trigger className="text-base font-semibold bg-gradient-brand bg-clip-text  underline hover:opacity-80 transition-opacity">
+      <Dialog.Trigger
+        className="bg-[linear-gradient(87.89deg,#944C16_0%,#0D0D0F_40.75%)] dark:bg-[linear-gradient(83.78deg,#944C16_-27.94%,#FFFFFF_70.52%)] cursor-pointer font-semibold bg-clip-text text-white dark:text-black underline decoration-2"
+        style={{
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
         Change
       </Dialog.Trigger>
 
@@ -33,7 +39,10 @@ export function ChangePasswordDialog() {
             </Dialog.Close>
           </div>
 
-          <div className="h-px w-full bg-black/20 mb-6" aria-hidden />
+          <div
+            className="h-px w-full bg-black/20 dark:bg-white/20 mb-6"
+            aria-hidden
+          />
 
           <form action={formAction} className="space-y-4">
             <div>

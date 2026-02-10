@@ -23,7 +23,7 @@ export async function getFriends() {
         ...headers,
         Authorization: `Bearer ${bearer}`,
       },
-      next: { tags: ["contacts"] },
+      next: { tags: ["friends"] },
     });
 
     if (response.status !== 200) {

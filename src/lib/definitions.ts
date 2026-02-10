@@ -74,9 +74,9 @@ export interface User {
   role: string;
   isSearchable: boolean;
   avatarKey: string | null;
-  e2eEnabled: boolean;
-  e2eReady: boolean;
-  e2eUpdatedAt: string;
+  e2eEnabled?: boolean;
+  e2eReady?: boolean;
+  e2eUpdatedAt?: string;
 }
 
 export interface SelectedContact {

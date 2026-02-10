@@ -1,30 +1,24 @@
 "use server";
 
-import { AUTHENTICATION_COOKIE_NAME } from "@/lib/definitions";
+import { apiClient, UnauthorizedError } from "@/lib/api-client";
 import { updateTag } from "next/cache";
-import { cookies } from "next/headers";
-import { getDefaultHeaders } from "../headers";
-
-async function getAuthHeaders() {
-  const headers = await getDefaultHeaders();
-  const cookieStore = await cookies();
-  const bearer = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value ?? "";
-  return { ...headers, Authorization: `Bearer ${bearer}` };
-}
 
 export async function getFullFriendRequests() {
-  const headers = await getAuthHeaders();
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/friends/requests`,
-      {
-        method: "GET",
-        headers,
-        next: { tags: ["friend-requests"] },
-      },
-    );
-    return response.ok ? await response.json() : [];
-  } catch {
+    const response = await apiClient("/friends/requests", {
+      method: "GET",
+      next: { tags: ["friend-requests"] },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { unauthorized: true };
+    }
     return [];
   }
 }
@@ -33,28 +27,27 @@ export async function respondToFriendRequest(
   requestId: string,
   action: "accept" | "decline",
 ) {
-  const headers = await getAuthHeaders();
-
-  // Accept: POST /friends/requests/:id/accept
-  // Decline: DELETE /friends/requests/:id
-  const url =
+  const endpoint =
     action === "accept"
-      ? `${process.env.NEXT_PUBLIC_API_URL}/friends/requests/${requestId}/accept`
-      : `${process.env.NEXT_PUBLIC_API_URL}/friends/requests/${requestId}`;
+      ? `/friends/requests/${requestId}/accept`
+      : `/friends/requests/${requestId}`;
 
   const method = action === "accept" ? "POST" : "DELETE";
 
   try {
-    const response = await fetch(url, { method, headers });
+    const response = await apiClient(endpoint, { method });
 
-    if (response.ok) {
-      updateTag("friend-requests");
-      return { success: true };
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return { error: data.message || `Failed to ${action} request` };
     }
 
-    const data = await response.json().catch(() => ({}));
-    return { error: data.message || `Failed to ${action} request` };
-  } catch {
+    updateTag("friend-requests");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { unauthorized: true };
+    }
     return { error: "Service error. Please try again." };
   }
 }

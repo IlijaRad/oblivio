@@ -5,19 +5,26 @@ import Wrapper from "@/ui/components/header/wrapper";
 import { VisibilityToggle } from "@/ui/components/visibility-toggle";
 import { IconX } from "@tabler/icons-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default async function Page() {
   const user = await getUser();
 
-  if ((user && "errors" in user) || !user) return null;
+  if (user && "unauthorized" in user) {
+    redirect("/api/auth/logout");
+  }
+
+  if (!user || "errors" in user) {
+    redirect("/api/auth/logout");
+  }
 
   return (
     <div>
-      <Wrapper />
+      <Wrapper user={user} />
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="min-h-screen bg-white dark:bg-zinc-900">
+        <div className="min-h-screen bg-white rounded-md dark:bg-zinc-900">
           <div className=" mx-auto px-5 py-6 md:px-8 md:py-8">
-            <div className="flex items-center justify-between mb-8 md:mb-10 pb-6 border-b border-b-black/20 dark:border-b-white">
+            <div className="flex items-center justify-between mb-8 md:mb-10 pb-6 border-b border-b-black/20 dark:border-b-white/20">
               <h1 className="text-xl md:text-[20px] font-normal text-brand-text">
                 My Profile
               </h1>
@@ -47,22 +54,19 @@ export default async function Page() {
 
                 <VisibilityToggle initialValue={user.isSearchable} />
               </div>
-              <div className="h-px bg-black/20 dark:bg-white" aria-hidden />
+              <div className="h-px bg-black/20 dark:bg-white/20" aria-hidden />
 
               <div className="flex items-center justify-between">
                 <span className="text-gray-950 dark:text-white">Username</span>
-                <button className="text-base font-semibold bg-gradient-brand bg-clip-text text-transparent underline hover:opacity-80 transition-opacity">
-                  Change
-                </button>
               </div>
-              <div className="h-px bg-black/20 dark:bg-white" aria-hidden />
+              <div className="h-px bg-black/20 dark:bg-white/20" aria-hidden />
 
               <div className="flex items-center justify-between">
                 <span className="text-gray-950 dark:text-white">Password</span>
                 <ChangePasswordDialog />
               </div>
 
-              <div className="h-px bg-black/20 dark:bg-white" aria-hidden />
+              <div className="h-px bg-black/20 dark:bg-white/20" aria-hidden />
             </div>
           </div>
         </div>

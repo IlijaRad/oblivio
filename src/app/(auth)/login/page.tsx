@@ -21,7 +21,7 @@ export default async function Page() {
               Don’t have an account?&nbsp;
               <Link
                 href="/register"
-                className="font-medium underline bg-clip-text text-white/50 dark:text-black/50 bg-[linear-gradient(87.89deg,#944C16_0%,#0D0D0F_40.75%)] dark:bg-[linear-gradient(83.78deg,#944C16_-27.94%,#FFFFFF_70.52%)]"
+                className="font-medium underline bg-clip-text text-white/50 dark:text-black/50 bg-[linear-gradient(87.89deg,#944C16_0%,#0D0D0F_40.75%)] decoration-2 dark:bg-[linear-gradient(83.78deg,#944C16_-27.94%,#FFFFFF_70.52%)]"
                 prefetch={false}
                 style={{
                   WebkitBackgroundClip: "text",

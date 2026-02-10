@@ -1,8 +1,6 @@
 "use server";
 
-import { AUTHENTICATION_COOKIE_NAME } from "@/lib/definitions";
-import { cookies } from "next/headers";
-import { getDefaultHeaders } from "../headers";
+import { apiClient, UnauthorizedError } from "@/lib/api-client";
 
 type Message = {
   id: string;
@@ -23,24 +21,16 @@ type ChatResponse =
       errors: {
         user?: string[];
       };
+    }
+  | {
+      unauthorized: true;
     };
 
 export async function getChat(id: string): Promise<ChatResponse> {
-  const headers = await getDefaultHeaders();
-  const cookieStore = await cookies();
-  const bearer = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value ?? "";
-
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/messages/thread?with=${id}&limit=50`,
-      {
-        method: "GET",
-        headers: {
-          ...headers,
-          Authorization: `Bearer ${bearer}`,
-        },
-      },
-    );
+    const response = await apiClient(`/messages/thread?with=${id}&limit=50`, {
+      method: "GET",
+    });
 
     if (!response.ok) {
       try {
@@ -57,8 +47,12 @@ export async function getChat(id: string): Promise<ChatResponse> {
     };
 
     return payload;
-  } catch (err) {
-    console.error("getChat fetch error:", err);
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { unauthorized: true };
+    }
+
+    console.error("getChat fetch error:", error);
     return {
       errors: {
         user: ["An error occurred, please try again."],

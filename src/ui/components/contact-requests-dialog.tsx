@@ -8,6 +8,7 @@ import { FriendRequest } from "@/lib/definitions";
 import * as Dialog from "@radix-ui/react-dialog";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import IconButton from "./icon-button";
@@ -20,6 +21,7 @@ export function ContactRequestsDialog({
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [isPending, startTransition] = useTransition();
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
+  const router = useRouter();
 
   const fetchRequests = async () => {
     const data = await getFullFriendRequests();
@@ -28,13 +30,20 @@ export function ContactRequestsDialog({
 
   const handleResponse = (id: string, action: "accept" | "decline") => {
     startTransition(async () => {
-      const res = await respondToFriendRequest(id, action);
-      if (res.success) {
-        toast.success(`Request ${action}ed`);
-        fetchRequests();
-      } else {
-        toast.error("Failed to process request");
+      const result = await respondToFriendRequest(id, action);
+
+      if (result.unauthorized) {
+        router.push("/login");
+        return;
       }
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Request ${action}ed`);
+      fetchRequests();
     });
   };
 
@@ -49,7 +58,7 @@ export function ContactRequestsDialog({
               Contact requests
             </Dialog.Title>
             <Dialog.Close
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors"
+              className="text-gray-500 cursor-pointer hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors"
               aria-label="Close dialog"
             >
               <IconX />

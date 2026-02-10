@@ -9,10 +9,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import AvatarBorder from "../avatar-border";
 import IconUpload from "../icons/icon-upload";
 
 interface Props {
-  initialAvatarKey: string;
+  initialAvatarKey: string | null;
   username: string;
 }
 
@@ -149,35 +150,37 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
     }
   };
 
-  const currentImageUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(avatarKey)}&t=${Date.now()}`;
+  const currentImageUrl = avatarKey
+    ? `${apiBase}/uploads/view?key=${encodeURIComponent(avatarKey)}&t=${Date.now()}`
+    : "";
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative mb-6 md:mb-8">
-        <div className="hidden md:block absolute inset-0 -m-8">
-          <div className="size-full rounded-[20px] border-2 border-gray-200 absolute" />
-        </div>
-        <div className="relative size-30 md:size-35">
-          <div className="size-full rounded-[10px] border-4 border-white shadow-lg overflow-hidden bg-white">
+      <div className="relative mb-6 w-40.75 h-39.75">
+        <div className="absolute left-1/2 top-1/2 size-22.5 -translate-x-1/2 -translate-y-1/2">
+          <div className="size-full rounded-xl overflow-hidden bg-transparent">
             {avatarKey ? (
               <Image
                 src={currentImageUrl}
                 alt="Profile"
                 className="size-full object-cover rounded-md"
-                width={140}
-                height={140}
+                width={90}
+                height={90}
                 unoptimized
               />
             ) : (
-              <div className="text-gray-900 flex items-center size-full justify-center">
+              <div className="text-gray-900 p-2 dark:text-white text-sm flex items-center size-full justify-center">
                 No avatar
               </div>
             )}
           </div>
         </div>
+        <div className="absolute inset-0">
+          <AvatarBorder />
+        </div>
       </div>
 
-      <h2 className="text-xl mt-12 md:text-[20px] font-normal text-brand-text">
+      <h2 className="text-xl md:text-[20px] font-normal text-gray-900 dark:text-white">
         {username}
       </h2>
 
@@ -188,13 +191,12 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
         hidden
         onChange={onFile}
       />
-
       <button
+        className="cursor-pointer mt-4 flex items-center justify-center p-px bg-[linear-gradient(75deg,#944C16,50%,#0D0D0F)] dark:bg-[linear-gradient(75deg,#944C16,30%,#fff)] relative rounded-md border-0"
         onClick={() => fileInput.current?.click()}
-        className="px-6 py-3 rounded-md border border-transparent bg-gradient-brand bg-clip-border relative group hover:opacity-90 transition-opacity"
       >
-        <div className="relative flex items-center gap-2 border dark:border-white dark:bg-transparent bg-white border-black/20 px-4 py-2 rounded-md">
-          <span className="text-base font-medium bg-gradient-brand bg-clip-text text-gray-900 dark:text-white">
+        <div className="py-3 px-5 gap-2 relative rounded-md dark:bg-[#1E1E1E] bg-white flex items-center justify-center">
+          <span className="font-medium bg-[linear-gradient(87.89deg,#944C16_0%,#0D0D0F_40.75%)] dark:bg-[linear-gradient(83.78deg,#944C16_-27.94%,#FFFFFF_70.52%)] bg-clip-text text-transparent">
             Upload picture
           </span>
           <IconUpload />

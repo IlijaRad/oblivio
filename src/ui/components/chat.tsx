@@ -24,7 +24,8 @@ import {
   IconSend,
   IconX,
 } from "@tabler/icons-react";
-import EmojiPicker from "emoji-picker-react";
+import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
+import { useTheme } from "next-themes";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,7 +45,7 @@ const themeStyles = {
     received:
       "bg-gray-200/90 text-gray-900 dark:bg-zinc-700 dark:text-white shadow-sm",
     time: "text-amber-600/80 dark:text-amber-500/80",
-    inputBorder: "border-amber-800/50 dark:border-amber-900/50",
+    inputBorder: "border-black/20 dark:border-white/20",
     inputBg: "bg-transparent",
     headerText: "dark:text-white text-gray-900",
   },
@@ -74,6 +75,8 @@ export default function Chat({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const { push } = useRouter();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -467,6 +470,23 @@ export default function Chat({
                         inputRef.current.focus();
                       }
                     }}
+                    theme={isDark ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                    style={
+                      {
+                        ...(isDark
+                          ? {
+                              "--epr-bg-color": "var(--color-zinc-900)",
+                              "--epr-picker-border-color":
+                                "rgba(255,255,255,0.2)",
+                              "--epr-category-label-bg-color":
+                                "var(--color-zinc-900)",
+                            }
+                          : {
+                              "--epr-bg-color": "white",
+                              "--epr-picker-border-color": "rgba(0,0,0,0.2)",
+                            }),
+                      } as React.CSSProperties
+                    }
                   />
                 </Popover.Content>
               </Popover.Root>
@@ -502,7 +522,7 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 text-center animate-in fade-in zoom-in-95 duration-500">
-      <div className="size-20 rounded-full bg-transparent flex items-center justify-center mb-4 shadow-sm border border-black/5 dark:border-white/5">
+      <div className="size-20 rounded-full bg-transparent flex items-center justify-center mb-4 shadow-sm border border-black/5 dark:border-white/20">
         <IconLock />
       </div>
       <h3 className={`text-lg font-medium ${styles.headerText}`}>
@@ -511,7 +531,7 @@ function EmptyState({
       <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-60">
         Say hi to&nbsp;
         <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-          @{contact.username}
+          {contact.username}
         </span>
         &nbsp; to start the conversation!
       </p>
