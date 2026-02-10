@@ -15,8 +15,10 @@ import IconButton from "./icon-button";
 
 export function ContactRequestsDialog({
   children,
+  onCountChange,
 }: {
   children: React.ReactNode;
+  onCountChange?: (delta: number) => void;
 }) {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -43,7 +45,14 @@ export function ContactRequestsDialog({
       }
 
       toast.success(`Request ${action}ed`);
-      fetchRequests();
+
+      onCountChange?.(-1);
+
+      await fetchRequests();
+
+      if (action === "accept") {
+        router.refresh();
+      }
     });
   };
 

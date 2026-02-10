@@ -1,13 +1,15 @@
 "use client";
 
 import { getWebsocketToken } from "@/lib/actions/websocket-token";
-import { Message } from "@/lib/definitions";
-import { connectWebSocket, subscribeUserChannel } from "@/lib/websocket";
+import {
+  connectWebSocket,
+  disconnectWebSocket,
+  subscribeUserChannel,
+  WebSocketPayload,
+} from "@/lib/websocket";
 import { createContext, ReactNode, useContext, useEffect, useRef } from "react";
 
-export type MessageHandler = (
-  message: Message & { with: number; type: string; upTo: number },
-) => void;
+export type MessageHandler = (message: WebSocketPayload) => void;
 
 type WebSocketContextValue = {
   addListener: (handler: MessageHandler) => () => void;
@@ -25,16 +27,28 @@ export function WebSocketProvider({
   const handlers = useRef<Set<MessageHandler>>(new Set());
 
   useEffect(() => {
-    async function init() {
-      const token = await getWebsocketToken();
-      connectWebSocket(token);
+    let mounted = true;
 
-      subscribeUserChannel(userId, (payload) => {
-        handlers.current.forEach((h) => h(payload));
-      });
+    async function init() {
+      try {
+        const token = await getWebsocketToken();
+        if (!mounted) return;
+
+        connectWebSocket(token);
+        subscribeUserChannel(userId, (payload) => {
+          handlers.current.forEach((h) => {
+            h(payload);
+          });
+        });
+      } catch {}
     }
 
     init();
+
+    return () => {
+      mounted = false;
+      disconnectWebSocket();
+    };
   }, [userId]);
 
   const addListener = (handler: MessageHandler) => {

@@ -50,6 +50,9 @@ export interface Message {
   createdAt: number;
   readAt: number | string | null;
   attachment: { key: string; type: string; name: string; size: number };
+  type?: string;
+  with?: string;
+  upTo?: number;
 }
 
 export interface ChatResponse {

@@ -187,24 +187,20 @@ export default function Chat({
     const remove = addListener((payload) => {
       if (payload.type === "seen") {
         if (String(payload.with) !== contact.id) return;
-        if (
-          payload.type === "seen" &&
-          payload.with &&
-          typeof payload.upTo === "number"
-        ) {
-          if (String(payload.with) !== contact.id) return;
 
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.fromUserId === currentUser.id &&
-              m.toUserId === String(payload.with) &&
-              new Date(m.createdAt).getTime() <= payload.upTo
-                ? { ...m, readAt: new Date(payload.upTo).toISOString() }
-                : m,
-            ),
-          );
-          return;
-        }
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.fromUserId === currentUser.id &&
+            m.toUserId === String(payload.with) &&
+            new Date(m.createdAt).getTime() <= payload.upTo
+              ? { ...m, readAt: new Date(payload.upTo).toISOString() }
+              : m,
+          ),
+        );
+        return;
+      }
+
+      if (payload.type === "friend") {
         return;
       }
 
@@ -225,7 +221,7 @@ export default function Chat({
     });
 
     return remove;
-  }, [contact.id, currentUser.id]);
+  }, [contact.id, currentUser.id, addListener]);
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);

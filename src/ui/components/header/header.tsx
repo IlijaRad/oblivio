@@ -21,9 +21,10 @@ interface HeaderProps {
     username: string;
     avatarKey: string | null;
   };
+  onCountChange?: (delta: number) => void;
 }
 
-export function Header({ requestCount = 0, user }: HeaderProps) {
+export function Header({ requestCount = 0, user, onCountChange }: HeaderProps) {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -54,7 +55,7 @@ export function Header({ requestCount = 0, user }: HeaderProps) {
             <ThemeSwitcher />
           </div>
 
-          <ContactRequestsDialog>
+          <ContactRequestsDialog onCountChange={onCountChange}>
             <button
               className="h-11.25 cursor-pointer w-15 flex items-center justify-center p-px border-0 bg-[linear-gradient(75deg,#944C16,50%,#0D0D0F)] dark:bg-[linear-gradient(75deg,#944C16,30%,#fff)] relative rounded-md"
               aria-label="Notifications"
@@ -133,7 +134,6 @@ export function Header({ requestCount = 0, user }: HeaderProps) {
                   >
                     {isDark ? (
                       <>
-                        {" "}
                         <svg
                           width="22"
                           height="22"
@@ -150,7 +150,6 @@ export function Header({ requestCount = 0, user }: HeaderProps) {
                       </>
                     ) : (
                       <>
-                        {" "}
                         <svg
                           width="16"
                           height="18"
