@@ -129,7 +129,7 @@ export function Header({ requestCount = 0, user }: HeaderProps) {
                   </Popover.Close>
                   <Popover.Close
                     onClick={toggleDarkMode}
-                    className="flex items-center border border-black/20 gap-3 w-full px-3 py-2.5 rounded-md text-sm dark:border-white/20 dark:bg-transparent text-zinc-900 dark:text-zinc-100"
+                    className="flex md:hidden items-center border border-black/20 gap-3 w-full px-3 py-2.5 rounded-md text-sm dark:border-white/20 dark:bg-transparent text-zinc-900 dark:text-zinc-100"
                   >
                     {isDark ? (
                       <>
