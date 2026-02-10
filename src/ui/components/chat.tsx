@@ -34,6 +34,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { twMerge } from "tailwind-merge";
 import IconCamera from "../icons/icon-camera";
 import IconLock from "../icons/icon-lock";
 import IconPhone from "../icons/icon-phone";
@@ -45,9 +46,10 @@ type Theme = "default" | "modern";
 const themeStyles = {
   default: {
     chatBg: "bg-white dark:bg-zinc-900",
-    sent: "bg-[linear-gradient(88deg,#944C16_0%,#0D0D0F_40.75%)] text-white",
-    received:
-      "bg-gray-200/90 text-gray-900 dark:bg-zinc-700 dark:text-white shadow-sm",
+    sent: "bg-[linear-gradient(88deg,#944C16_0%,#0D0D0F_40.75%)]",
+    sentText: "text-white",
+    received: "bg-gray-[#f1f1f1] dark:bg-zinc-800 shadow-sm",
+    receivedText: "text-gray-900 dark:text-white",
     time: "text-amber-600/80 dark:text-amber-500/80",
     inputBorder: "border-black/20 dark:border-white/20",
     inputBg: "bg-transparent",
@@ -55,9 +57,10 @@ const themeStyles = {
   },
   modern: {
     chatBg: "bg-white dark:bg-zinc-900",
-    sent: "bg-gradient-to-r from-gray-700 to-gray-900 text-white",
-    received:
-      "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm",
+    sent: "bg-gradient-to-r from-gray-700 to-gray-900",
+    sentText: "text-white",
+    received: "bg-white dark:bg-zinc-800 shadow-sm",
+    receivedText: "text-zinc-900 dark:text-white",
     time: "text-gray-500 dark:text-gray-400",
     inputBorder: "border-black/20 dark:border-white/20",
     inputBg: "bg-white dark:bg-zinc-900",
@@ -546,9 +549,13 @@ export default function Chat({
                     )}
                     <div className="max-w-[78%] md:max-w-[65%]">
                       <div
-                        className={`rounded-2xl px-4 py-3 ${isMe ? styles.sent : styles.received}`}
+                        className={`rounded-2xl px-4 py-3 ${isMe ? `${styles.sent} ${styles.sentText}` : `${styles.received} ${styles.receivedText}`}`}
                       >
-                        <MessageContent message={msg} apiBase={apiBase} />
+                        <MessageContent
+                          message={msg}
+                          apiBase={apiBase}
+                          className={`${isMe ? styles.sentText : styles.receivedText}`}
+                        />
                         <div className="flex items-center justify-end gap-1.5 mt-1">
                           <span className="text-[10px] opacity-70">
                             {new Date(msg.createdAt).toLocaleTimeString([], {
@@ -686,7 +693,7 @@ export default function Chat({
           </div>
 
           <button
-            className="size-12 shrink-0 rounded-md bg-[linear-gradient(88deg,#944C16_0%,#0D0D0F_40.75%)] text-white flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale cursor-pointer"
+            className={`size-12 shrink-0 rounded-md ${styles.sent} text-white flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale cursor-pointer`}
             onClick={() => {
               if (inputValue.trim()) handleSendMessage();
             }}
@@ -752,9 +759,11 @@ function EmptyState({
 function MessageContent({
   message,
   apiBase,
+  className,
 }: {
   message: Message;
   apiBase?: string;
+  className: string;
 }) {
   if (isImageAttachment(message.attachment)) {
     const imageUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(
@@ -786,8 +795,8 @@ function MessageContent({
   if (message.attachment?.type === "audio") {
     const audioUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(message.attachment.key)}`;
     return (
-      <div className="my-2">
-        <AudioPlayer src={audioUrl} />
+      <div className={twMerge("my-2", className)}>
+        <AudioPlayer src={audioUrl} className={className} />
         {message.body && <p className="mt-2 text-[15px]">{message.body}</p>}
       </div>
     );
