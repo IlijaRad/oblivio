@@ -1,5 +1,4 @@
 "use client";
-
 import {
   getAvatarPresignedUrl,
   updateAvatarKey,
@@ -23,10 +22,8 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-
   const fileInput = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
   const [drag, setDrag] = useState<{
     x: number;
     y: number;
@@ -38,7 +35,6 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
     y: 0,
     size: 200,
   });
-
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,79 +61,62 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
   useEffect(() => {
     const handle = requestAnimationFrame(() => {
       if (!imgEl || !canvasRef.current) return;
-
       const c = canvasRef.current;
       const ctx = c.getContext("2d");
       if (!ctx) return;
-
       c.width = 320;
       c.height = 320;
       ctx.fillStyle = "#111";
       ctx.fillRect(0, 0, c.width, c.height);
-
       const scale = Math.min(c.width / imgEl.width, c.height / imgEl.height);
       const w = imgEl.width * scale;
       const h = imgEl.height * scale;
       const ox = (c.width - w) / 2;
       const oy = (c.height - h) / 2;
-
       ctx.drawImage(imgEl, ox, oy, w, h);
-
       const bx = ox + box.x * scale;
       const by = oy + box.y * scale;
       const bs = box.size * scale;
-
       ctx.strokeStyle = "#944C16";
       ctx.lineWidth = 2;
       ctx.strokeRect(bx, by, bs, bs);
-
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(ox, oy, w, by - oy);
       ctx.fillRect(ox, by + bs, w, h - (by - oy) - bs);
       ctx.fillRect(ox, by, bx - ox, bs);
       ctx.fillRect(bx + bs, by, w - (bx - ox) - bs, bs);
     });
-
     return () => cancelAnimationFrame(handle);
   }, [imgEl, box, previewUrl]);
 
   const handleUpload = async () => {
     if (!imgEl) return;
     setIsUploading(true);
-
     try {
       const out = document.createElement("canvas");
       out.width = 512;
       out.height = 512;
       const octx = out.getContext("2d")!;
       octx.drawImage(imgEl, box.x, box.y, box.size, box.size, 0, 0, 512, 512);
-
       const blob = await new Promise<Blob>((res) =>
         out.toBlob((b) => res(b!), "image/jpeg", 0.9),
       );
-
       const presign = await getAvatarPresignedUrl(blob.type, blob.size);
-
       if (presign.error) {
         toast.error(presign.error);
         return;
       }
-
       const uploadRes = await fetch(presign.url, {
         method: "PUT",
         headers: { "Content-Type": blob.type },
         body: blob,
       });
-
       if (!uploadRes.ok) throw new Error("S3 Upload failed");
-
       const updateRes = await updateAvatarKey(presign.key);
-
       if (updateRes.error) {
         toast.error(updateRes.error);
         return;
       }
-
       setAvatarKey(presign.key);
       setPreviewUrl(null);
       toast.success("Profile picture updated");
@@ -153,6 +132,55 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
   const currentImageUrl = avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(avatarKey)}&t=${Date.now()}`
     : "";
+
+  const getClientCoords = (ev: MouseEvent | TouchEvent) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    let clientX: number, clientY: number;
+    if ("touches" in ev) {
+      clientX = ev.touches[0].clientX;
+      clientY = ev.touches[0].clientY;
+    } else {
+      clientX = ev.clientX;
+      clientY = ev.clientY;
+    }
+    return { clientX, clientY, rect };
+  };
+
+  const handleStart = (ev: React.MouseEvent | React.TouchEvent) => {
+    ev.preventDefault();
+    const { clientX, clientY, rect } = getClientCoords(ev.nativeEvent);
+    setDrag({
+      x: box.x,
+      y: box.y,
+      startX: clientX - rect.left,
+      startY: clientY - rect.top,
+    });
+  };
+
+  const handleMove = (ev: React.MouseEvent | React.TouchEvent) => {
+    if (!drag || !imgEl) return;
+    ev.preventDefault();
+    const { clientX, clientY, rect } = getClientCoords(ev.nativeEvent);
+    const nx = Math.max(
+      0,
+      Math.min(
+        imgEl.width - box.size,
+        drag.x + (clientX - rect.left - drag.startX) / (rect.width / 320),
+      ),
+    );
+    const ny = Math.max(
+      0,
+      Math.min(
+        imgEl.height - box.size,
+        drag.y + (clientY - rect.top - drag.startY) / (rect.height / 320),
+      ),
+    );
+    setBox({ ...box, x: Math.floor(nx), y: Math.floor(ny) });
+  };
+
+  const handleEnd = () => {
+    setDrag(null);
+  };
 
   return (
     <div className="flex flex-col items-center">
@@ -179,11 +207,9 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
           <AvatarBorder />
         </div>
       </div>
-
       <h2 className="text-xl md:text-[20px] font-normal text-gray-900 dark:text-white">
         {username}
       </h2>
-
       <input
         ref={fileInput}
         type="file"
@@ -202,7 +228,6 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
           <IconUpload />
         </div>
       </button>
-
       <Dialog.Root open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" />
@@ -210,47 +235,20 @@ export function AvatarUploader({ initialAvatarKey, username }: Props) {
             <Dialog.Title className="text-lg font-medium mb-4 dark:text-white text-center">
               Crop your profile picture
             </Dialog.Title>
-
             <div className="flex justify-center bg-black rounded-md overflow-hidden relative group">
               <canvas
                 ref={canvasRef}
-                onMouseDown={(ev) => {
-                  const rect = canvasRef.current!.getBoundingClientRect();
-                  setDrag({
-                    x: box.x,
-                    y: box.y,
-                    startX: ev.clientX - rect.left,
-                    startY: ev.clientY - rect.top,
-                  });
-                }}
-                onMouseMove={(ev) => {
-                  if (!drag || !imgEl) return;
-                  const rect = canvasRef.current!.getBoundingClientRect();
-                  const nx = Math.max(
-                    0,
-                    Math.min(
-                      imgEl.width - box.size,
-                      drag.x +
-                        (ev.clientX - rect.left - drag.startX) /
-                          (rect.width / 320),
-                    ),
-                  );
-                  const ny = Math.max(
-                    0,
-                    Math.min(
-                      imgEl.height - box.size,
-                      drag.y +
-                        (ev.clientY - rect.top - drag.startY) /
-                          (rect.height / 320),
-                    ),
-                  );
-                  setBox({ ...box, x: Math.floor(nx), y: Math.floor(ny) });
-                }}
-                onMouseUp={() => setDrag(null)}
-                className="cursor-grab active:cursor-grabbing max-w-full"
+                onMouseDown={handleStart}
+                onMouseMove={handleMove}
+                onMouseUp={handleEnd}
+                onMouseLeave={handleEnd}
+                onTouchStart={handleStart}
+                onTouchMove={handleMove}
+                onTouchEnd={handleEnd}
+                onTouchCancel={handleEnd}
+                className="cursor-grab active:cursor-grabbing max-w-full touch-none"
               />
             </div>
-
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setPreviewUrl(null)}
