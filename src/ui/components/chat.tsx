@@ -926,7 +926,6 @@ function MessageContent({
     const imageUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(
       message.attachment.key,
     )}`;
-
     return (
       <div className="space-y-2">
         <div className="relative overflow-hidden rounded-xl max-w-65">
@@ -942,28 +941,29 @@ function MessageContent({
             }}
           />
         </div>
-
         {message.body && (
-          <p className="text-[15px] leading-relaxed wrap-break-word">
+          <p className="text-[15px] leading-relaxed break-all hyphens-auto">
             {message.body}
           </p>
         )}
       </div>
     );
   }
-
   if (message.attachment?.type === "audio") {
     const audioUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(message.attachment.key)}`;
     return (
       <div className={twMerge("my-2", className)}>
         <AudioPlayer src={audioUrl} className={className} />
-        {message.body && <p className="mt-2 text-[15px]">{message.body}</p>}
+        {message.body && (
+          <p className="mt-2 text-[15px] leading-relaxed break-all hyphens-auto">
+            {message.body}
+          </p>
+        )}
       </div>
     );
   }
-
   return (
-    <p className="text-[15px] leading-relaxed wrap-break-word">
+    <p className="text-[15px] leading-relaxed break-all hyphens-auto">
       {message.body}
     </p>
   );
