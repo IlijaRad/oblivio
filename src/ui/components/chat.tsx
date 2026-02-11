@@ -716,7 +716,7 @@ export default function Chat({
 
             <div className="absolute flex items-center gap-x-2 w-fit right-2 top-1">
               <label
-                className={`hover:opacity-75 cursor-pointer p-2 ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
+                className={`hover:opacity-75 cursor-pointer p-2 ${isUploading && "opacity-50 pointer-events-none"}`}
                 aria-label="Attach a file"
               >
                 <IconPaperclip
@@ -920,15 +920,32 @@ function MessageContent({
   apiBase?: string;
   className: string;
 }) {
+  const viewUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(
+    message.attachment?.key || "",
+  )}`;
+
+  const size = message.attachment?.size || 0;
+  const formattedSize = formatFileSize(size);
+
+  function formatFileSize(bytes: number) {
+    if (!bytes) return "0 KB";
+
+    const kb = bytes / 1024;
+    const mb = kb / 1024;
+
+    if (mb >= 1) {
+      return `${mb.toFixed(2)} MB`;
+    }
+
+    return `${kb.toFixed(2)} KB`;
+  }
+
   if (isImageAttachment(message.attachment)) {
-    const imageUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(
-      message.attachment.key,
-    )}`;
     return (
       <div className="space-y-2">
         <div className="relative overflow-hidden rounded-xl max-w-65">
           <Image
-            src={imageUrl}
+            src={viewUrl}
             alt="Image attachment"
             width={260}
             height={260}
@@ -940,7 +957,27 @@ function MessageContent({
           />
         </div>
         {message.body && (
-          <p className="text-[15px] leading-relaxed break-all hyphens-auto">
+          <p className="text-[15px] leading-relaxed break-all">
+            {message.body}
+          </p>
+        )}
+      </div>
+    );
+  }
+  if (message.attachment?.type === "video") {
+    return (
+      <div className="space-y-2">
+        <div className="relative overflow-hidden rounded-xl max-w-65">
+          <video
+            src={viewUrl}
+            controls
+            width={260}
+            height={260}
+            className="object-cover rounded-lg"
+          />
+        </div>
+        {message.body && (
+          <p className="text-[15px] leading-relaxed break-all">
             {message.body}
           </p>
         )}
@@ -948,21 +985,58 @@ function MessageContent({
     );
   }
   if (message.attachment?.type === "audio") {
-    const audioUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(message.attachment.key)}`;
     return (
       <div className={twMerge("my-2", className)}>
-        <AudioPlayer src={audioUrl} className={className} />
+        <AudioPlayer src={viewUrl} className={className} />
         {message.body && (
-          <p className="mt-2 text-[15px] leading-relaxed break-all hyphens-auto">
+          <p className="mt-2 text-[15px] leading-relaxed break-all">
             {message.body}
           </p>
         )}
       </div>
     );
   }
+  if (message.attachment?.type === "file") {
+    return (
+      <div className={twMerge("my-2 flex gap-x-2 items-center", className)}>
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 32 32"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="dark:opacity-50"
+        >
+          <path
+            d="M9.5999 3.19995C7.8349 3.19995 6.3999 4.63495 6.3999 6.39995V25.6C6.3999 27.365 7.8349 28.8 9.5999 28.8H22.3999C24.1649 28.8 25.5999 27.365 25.5999 25.6V11.725C25.5999 10.875 25.2649 10.06 24.6649 9.45995L19.3349 4.13495C18.7349 3.53495 17.9249 3.19995 17.0749 3.19995H9.5999ZM22.6749 12H17.9999C17.3349 12 16.7999 11.465 16.7999 10.8V6.12495L22.6749 12Z"
+            fill="currentColor"
+          />
+        </svg>
+        <div className="flex flex-col gap-y-0">
+          <div className="break-all leading-none text-[15px]">
+            {message.attachment.name || "file"}
+          </div>
+          <div className="text-xs leading-none mt-1">{formattedSize}</div>
+        </div>
+        <a href={viewUrl} target="_blank" rel="noreferrer">
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 32 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="dark:opacity-50"
+          >
+            <path
+              d="M17.5998 4.79995C17.5998 3.91495 16.8848 3.19995 15.9998 3.19995C15.1148 3.19995 14.3998 3.91495 14.3998 4.79995V15.335L12.3298 13.265C11.7048 12.64 10.6898 12.64 10.0648 13.265C9.43981 13.89 9.43981 14.905 10.0648 15.53L14.8648 20.33C15.4898 20.955 16.5048 20.955 17.1298 20.33L21.9298 15.53C22.5548 14.905 22.5548 13.89 21.9298 13.265C21.3048 12.64 20.2898 12.64 19.6648 13.265L17.5998 15.335V4.79995ZM7.9998 19.2C6.2348 19.2 4.7998 20.635 4.7998 22.4V24C4.7998 25.765 6.2348 27.2 7.9998 27.2H23.9998C25.7648 27.2 27.1998 25.765 27.1998 24V22.4C27.1998 20.635 25.7648 19.2 23.9998 19.2H21.6548L18.8248 22.03C17.2648 23.59 14.7298 23.59 13.1698 22.03L10.3448 19.2H7.9998ZM23.1998 22C23.8648 22 24.3998 22.535 24.3998 23.2C24.3998 23.865 23.8648 24.4 23.1998 24.4C22.5348 24.4 21.9998 23.865 21.9998 23.2C21.9998 22.535 22.5348 22 23.1998 22Z"
+              fill="currentColor"
+            />
+          </svg>
+        </a>
+      </div>
+    );
+  }
   return (
-    <p className="text-[15px] leading-relaxed break-all hyphens-auto">
-      {message.body}
-    </p>
+    <p className="text-[15px] leading-relaxed break-all">{message.body}</p>
   );
 }
