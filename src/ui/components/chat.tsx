@@ -760,6 +760,7 @@ export default function Chat({
                       }
                     }}
                     theme={isDark ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                    skinTonesDisabled
                     style={
                       {
                         ...(isDark
