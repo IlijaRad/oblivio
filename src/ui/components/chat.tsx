@@ -517,9 +517,6 @@ export default function Chat({
               <span className={`font-medium truncate ${styles.headerText}`}>
                 {contact.username}
               </span>
-              <span className="text-[10px] opacity-60 dark:text-white text-black">
-                Online
-              </span>
             </div>
           </div>
 
