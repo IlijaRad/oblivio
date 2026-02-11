@@ -31,7 +31,7 @@ export default async function Page() {
     <ClientLayout userId={user.id}>
       <HeaderClient user={user} initialRequestCount={count} />
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="min-h-screen bg-white rounded-md dark:bg-zinc-900">
+        <div className="bg-white rounded-md mb-4 dark:bg-zinc-900 min-h-[calc(100dvh-94px)]">
           <div className=" mx-auto px-5 py-6 md:px-8 md:py-8">
             <div className="flex items-center justify-between mb-8 md:mb-10 pb-6 border-b border-b-black/20 dark:border-b-white/20">
               <h1 className="text-xl md:text-[20px] font-normal text-brand-text">
@@ -53,6 +53,7 @@ export default async function Page() {
               />
             </div>
             <div className="max-w-155 mx-auto space-y-4 md:space-y-4">
+              <div className="h-px bg-black/20 dark:bg-white/20" aria-hidden />
               <div className="flex items-center justify-between">
                 <span className="text-gray-950 dark:text-white">
                   Visible in search
