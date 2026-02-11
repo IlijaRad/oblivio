@@ -27,11 +27,8 @@ import * as Popover from "@radix-ui/react-popover";
 import {
   IconArrowLeft,
   IconDotsVertical,
-  IconMicrophone,
   IconMoodSmile,
   IconPaperclip,
-  IconPlayerStopFilled,
-  IconSend,
   IconX,
 } from "@tabler/icons-react";
 import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
@@ -47,6 +44,7 @@ import IconCamera from "../icons/icon-camera";
 import IconLock from "../icons/icon-lock";
 import IconPhone from "../icons/icon-phone";
 import AudioPlayer from "./audio-player";
+import ButtonSend from "./chat/button-send";
 import IconButton from "./icon-button";
 import IncomingCall from "./incoming-call";
 
@@ -701,7 +699,7 @@ export default function Chat({
               <div className="flex items-center gap-2 w-full animate-pulse">
                 <div className="size-2 rounded-full bg-red-500" />
                 <span className="text-sm font-medium text-red-500">
-                  Recording Voice... {Math.floor(recordingTime / 60)}:
+                  {Math.floor(recordingTime / 60)}:
                   {(recordingTime % 60).toString().padStart(2, "0")}
                 </span>
               </div>
@@ -787,38 +785,16 @@ export default function Chat({
             </div>
           </div>
 
-          <button
-            className={`size-12 shrink-0 rounded-md ${styles.sent} text-white flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale cursor-pointer`}
-            onClick={() => {
-              if (inputValue.trim()) handleSendMessage();
-            }}
-            onMouseDown={() => {
-              if (!inputValue.trim()) startRecording();
-            }}
-            onMouseUp={() => {
-              if (isRecording) stopRecording();
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              if (!inputValue.trim()) startRecording();
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              if (isRecording) stopRecording();
-            }}
-            disabled={isSending || isUploading}
-            aria-label="Send message"
-          >
-            {isSending || isUploading ? (
-              <div className="size-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-            ) : isRecording ? (
-              <IconPlayerStopFilled size={22} />
-            ) : inputValue.trim() ? (
-              <IconSend size={22} />
-            ) : (
-              <IconMicrophone size={22} />
-            )}
-          </button>
+          <ButtonSend
+            inputValue={inputValue}
+            isSending={isSending}
+            isUploading={isUploading}
+            isRecording={isRecording}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+            handleSendMessage={handleSendMessage}
+            styles={styles}
+          />
         </div>
       </div>
       {incoming &&
