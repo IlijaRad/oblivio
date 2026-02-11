@@ -48,6 +48,7 @@ import IconLock from "../icons/icon-lock";
 import IconPhone from "../icons/icon-phone";
 import AudioPlayer from "./audio-player";
 import IconButton from "./icon-button";
+import IncomingCall from "./incoming-call";
 
 type Theme = "default" | "modern";
 
@@ -822,47 +823,23 @@ export default function Chat({
       </div>
       {incoming &&
         createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-1000 p-6"
-          >
-            <div
-              className="bg-white dark:bg-zinc-900 rounded-xl p-6 max-w-sm w-full shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-xl font-medium mb-2 dark:text-white">
-                Incoming call
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                From: {contact?.username || incoming.fromUserId}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                  onClick={async () => {
-                    try {
-                      await calls.acceptOffer(incoming);
-                      setIncoming(null);
-                    } catch (e) {
-                      console.error(e);
-                      toast.error("Failed to accept call");
-                    }
-                  }}
-                >
-                  Accept
-                </button>
-                <button
-                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                  onClick={() => {
-                    setIncoming(null);
-                  }}
-                >
-                  Decline
-                </button>
-              </div>
-            </div>
-          </div>,
+          <IncomingCall
+            type={incoming.hasVideo ? "video" : "audio"}
+            callerName={contact?.username || incoming.fromUserId}
+            onAccept={async () => {
+              try {
+                await calls.acceptOffer(incoming);
+                setIncoming(null);
+              } catch (e) {
+                console.error(e);
+                toast.error("Failed to accept call");
+              }
+            }}
+            onReject={() => {
+              setIncoming(null);
+            }}
+            onToggle={() => {}}
+          />,
           document.body,
         )}
 
