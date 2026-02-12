@@ -99,6 +99,7 @@ class CallsManager {
     sdpMid?: string | null;
     sdpMLineIndex?: number | null;
   }> = [];
+  private remoteStream: MediaStream | null = null;
 
   constructor() {
     this.setupEventListeners();
@@ -322,8 +323,12 @@ class CallsManager {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
       };
       this.pc.ontrack = (e) => {
-        if (this.remoteVideo && e.streams[0])
-          this.remoteVideo.srcObject = e.streams[0];
+        if (e.streams[0]) {
+          this.remoteStream = e.streams[0];
+          if (this.remoteVideo) {
+            this.remoteVideo.srcObject = e.streams[0];
+          }
+        }
       };
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
@@ -369,8 +374,12 @@ class CallsManager {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
       };
       this.pc.ontrack = (e) => {
-        if (this.remoteVideo && e.streams[0])
-          this.remoteVideo.srcObject = e.streams[0];
+        if (e.streams[0]) {
+          this.remoteStream = e.streams[0];
+          if (this.remoteVideo) {
+            this.remoteVideo.srcObject = e.streams[0];
+          }
+        }
       };
       await this.pc.setRemoteDescription(
         new RTCSessionDescription({
@@ -513,6 +522,7 @@ class CallsManager {
     this.withUserId = null;
     this.pendingCandidates = [];
     this.emitState();
+    this.remoteStream = null;
   }
 
   attachElements(remote: HTMLVideoElement, local?: HTMLVideoElement) {
@@ -521,6 +531,10 @@ class CallsManager {
 
     if (this.localStream && this.localVideo) {
       this.localVideo.srcObject = this.localStream;
+    }
+
+    if (this.remoteStream && this.remoteVideo) {
+      this.remoteVideo.srcObject = this.remoteStream;
     }
   }
 
