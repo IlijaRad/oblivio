@@ -179,7 +179,9 @@ export function Header({ requestCount = 0, user, onCountChange }: HeaderProps) {
                       </>
                     )}
                   </Popover.Close>
-                  <LogoutButton />
+                  <Popover.Close asChild>
+                    <LogoutButton />
+                  </Popover.Close>
                 </div>
               </Popover.Content>
             </Popover.Portal>
