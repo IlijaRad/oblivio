@@ -7,7 +7,7 @@ import { getChat } from "@/lib/actions/thread/get-chat";
 import { markAsSeen } from "@/lib/actions/thread/seen";
 import { sendMessage } from "@/lib/actions/thread/send-message";
 import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
-import { calls, CallState, IncomingOffer } from "@/lib/calls";
+import { calls } from "@/lib/calls";
 import {
   GetChatResult,
   isImageAttachment,
@@ -37,7 +37,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 import IconCamera from "../icons/icon-camera";
@@ -46,7 +45,6 @@ import IconPhone from "../icons/icon-phone";
 import AudioPlayer from "./audio-player";
 import ButtonSend from "./chat/button-send";
 import IconButton from "./icon-button";
-import IncomingCall from "./incoming-call";
 
 type Theme = "default" | "modern";
 
@@ -82,11 +80,9 @@ const THEME_STORAGE_KEY = "chat-theme-preference";
 export default function Chat({
   contact,
   currentUser,
-  token,
 }: {
   contact: SelectedContact;
   currentUser: User;
-  token?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -108,19 +104,6 @@ export default function Chat({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const [incoming, setIncoming] = useState<IncomingOffer | null>(null);
-  const [callState, setCallState] = useState<CallState>({
-    active: false,
-    connected: false,
-    hasVideo: false,
-    micMuted: false,
-    cameraOn: false,
-    callId: null,
-    withUserId: null,
-  });
-
-  const remoteRef = useRef<HTMLVideoElement | null>(null);
-  const localRef = useRef<HTMLVideoElement | null>(null);
 
   const contactAvatar = contact.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
@@ -278,32 +261,6 @@ export default function Chat({
     }
     loadThread();
   }, [contact.id]);
-
-  useEffect(() => {
-    if (token) {
-      calls.setToken(token);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    calls.setIncomingHandler((offer) => {
-      console.log("Incoming call offer", offer);
-      setIncoming(offer);
-    });
-
-    const onStateChange = (e: Event) => {
-      const customEvent = e as CustomEvent<CallState>;
-      setCallState(customEvent.detail);
-    };
-
-    window.addEventListener("calls:accepted", () => setIncoming(null));
-    window.addEventListener("calls:state", onStateChange);
-
-    return () => {
-      window.addEventListener("calls:accepted", () => setIncoming(null));
-      window.removeEventListener("calls:state", onStateChange);
-    };
-  }, []);
 
   async function handleBurnChat() {
     const res = await burnChat(contact.id);
@@ -474,14 +431,6 @@ export default function Chat({
       }
     }
   }, [messages.length]);
-
-  useEffect(() => {
-    if (!callState.active) return;
-
-    const r = remoteRef.current;
-    const l = localRef.current || undefined;
-    if (r) calls.attachElements(r, l);
-  }, [callState.active]);
 
   const styles = themeStyles[theme];
 
@@ -795,92 +744,6 @@ export default function Chat({
           />
         </div>
       </div>
-      {incoming &&
-        createPortal(
-          <IncomingCall
-            type={incoming.hasVideo ? "video" : "audio"}
-            callerName={contact?.username || incoming.fromUserId}
-            onAccept={async () => {
-              try {
-                await calls.acceptOffer(incoming);
-                setIncoming(null);
-              } catch (e) {
-                console.error(e);
-                toast.error("Failed to accept call");
-              }
-            }}
-            onReject={() => {
-              setIncoming(null);
-            }}
-            onToggle={() => {}}
-          />,
-          document.body,
-        )}
-
-      {callState.active &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 bg-black z-2000 flex flex-col"
-          >
-            <div className="relative w-full h-full">
-              <video
-                ref={remoteRef}
-                autoPlay
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-
-              {callState.hasVideo && (
-                <video
-                  ref={localRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="absolute right-4 bottom-20 w-40 h-30 object-cover rounded-lg border-2 border-white/60"
-                />
-              )}
-
-              <div className="absolute top-4 left-4 text-white bg-black/40 px-3 py-2 rounded-lg">
-                <div>{callState.connected ? "Connected" : "Connecting..."}</div>
-                <div className="text-sm opacity-80">
-                  {contact?.username || callState.withUserId}
-                </div>
-              </div>
-
-              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-4 p-6">
-                <button
-                  onClick={() => calls.toggleMic()}
-                  className={`px-6 py-3 rounded-full ${
-                    callState.micMuted ? "bg-red-500" : "bg-gray-700"
-                  } text-white`}
-                >
-                  {callState.micMuted ? "Unmute" : "Mute"}
-                </button>
-
-                {callState.hasVideo && (
-                  <button
-                    onClick={() => calls.toggleCamera()}
-                    className={`px-6 py-3 rounded-full ${
-                      callState.cameraOn ? "bg-gray-700" : "bg-red-500"
-                    } text-white`}
-                  >
-                    {callState.cameraOn ? "Camera Off" : "Camera On"}
-                  </button>
-                )}
-
-                <button
-                  onClick={() => calls.endCall("hangup")}
-                  className="px-6 py-3 rounded-full bg-red-600 text-white"
-                >
-                  End Call
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
     </div>
   );
 }

@@ -1,18 +1,25 @@
 import { getUser } from "@/lib/actions/auth/get-user";
+import { getContacts } from "@/lib/actions/friends/get-contacts";
 import { getFullFriendRequests } from "@/lib/actions/friends/get-requests";
+import { AUTHENTICATION_COOKIE_NAME } from "@/lib/definitions";
 import { AvatarUploader } from "@/ui/components/avatar-uploader";
 import { ChangePasswordDialog } from "@/ui/components/change-password-dialog";
 import { HeaderClient } from "@/ui/components/header/header-client";
 import { VisibilityToggle } from "@/ui/components/visibility-toggle";
 import { IconX } from "@tabler/icons-react";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClientLayout } from "../(chat)/client-layout";
 
 export default async function Page() {
-  const [user, friendRequests] = await Promise.all([
+  const cookieStore = await cookies();
+  const token = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value;
+
+  const [user, friendRequests, contactsList] = await Promise.all([
     getUser(),
     getFullFriendRequests(),
+    getContacts(),
   ]);
 
   if (user && "unauthorized" in user) {
@@ -27,8 +34,12 @@ export default async function Page() {
 
   const count = Array.isArray(friendRequests) ? friendRequests.length : 0;
 
+  const contacts = Array.isArray(contactsList)
+    ? contactsList.map((c) => ({ id: c.id, username: c.username }))
+    : [];
+
   return (
-    <ClientLayout userId={user.id}>
+    <ClientLayout userId={user.id} token={token} contacts={contacts}>
       <HeaderClient user={user} initialRequestCount={count} />
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-md mb-4 dark:bg-zinc-900 min-h-[calc(100dvh-94px)]">

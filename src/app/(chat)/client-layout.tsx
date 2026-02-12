@@ -1,14 +1,29 @@
 "use client";
 
 import { WebSocketProvider } from "@/context/WebSocketProvider";
-import { ReactNode } from "react";
+import { CallOverlay } from "@/ui/components/call-overlay";
+import { CallProvider } from "@/ui/components/call-provider";
 
 export function ClientLayout({
   userId,
+  token,
   children,
+  contacts,
 }: {
   userId: string;
-  children: ReactNode;
+  token?: string;
+  children: React.ReactNode;
+  contacts?: { id: string; username: string }[];
 }) {
-  return <WebSocketProvider userId={userId}>{children}</WebSocketProvider>;
+  const getCallerName = (userId: string) =>
+    contacts?.find((c) => c.id === userId)?.username ?? userId;
+
+  return (
+    <WebSocketProvider userId={userId}>
+      <CallProvider token={token}>
+        {children}
+        <CallOverlay getCallerName={getCallerName} />
+      </CallProvider>
+    </WebSocketProvider>
+  );
 }

@@ -1,10 +1,8 @@
 import { getUser } from "@/lib/actions/auth/get-user";
 import { getContacts } from "@/lib/actions/friends/get-contacts";
 import { getChat } from "@/lib/actions/thread/get-chat";
-import { AUTHENTICATION_COOKIE_NAME } from "@/lib/definitions";
 import ChatLoader from "@/ui/chat-loader";
 import Chat from "@/ui/components/chat";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -18,8 +16,6 @@ export default function Page(props: { params: Promise<{ id: string }> }) {
 
 async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const cookieStore = await cookies();
-  const token = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value;
 
   const [chat, contactsList, user] = await Promise.all([
     getChat(id),
@@ -57,5 +53,5 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
     redirect("/");
   }
 
-  return <Chat currentUser={user} contact={currentContact} token={token} />;
+  return <Chat currentUser={user} contact={currentContact} />;
 }
