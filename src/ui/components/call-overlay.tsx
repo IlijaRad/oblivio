@@ -1,5 +1,4 @@
 "use client";
-
 import { calls } from "@/lib/calls";
 import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -22,7 +21,6 @@ export function CallOverlay({
 }) {
   const { callState, incoming, setIncoming, remoteRef, localRef } = useCall();
   const isClient = useIsClient();
-
   if (!isClient) return null;
 
   const callerName = incoming
@@ -49,7 +47,15 @@ export function CallOverlay({
                 toast.error("Failed to accept call");
               }
             }}
-            onReject={() => setIncoming(null)}
+            onReject={async () => {
+              // FIX: notify the caller so their modal closes too
+              try {
+                await calls.rejectCall(incoming.callId, incoming.fromUserId);
+              } catch (e) {
+                console.error("Failed to send rejection:", e);
+              }
+              setIncoming(null);
+            }}
             onToggle={() => {}}
           />,
           document.body,
@@ -78,10 +84,12 @@ export function CallOverlay({
                   className="absolute right-4 bottom-20 w-40 h-30 object-cover rounded-lg border-2 border-white/60"
                 />
               )}
+
               <div className="absolute top-4 left-4 text-white bg-black/40 px-3 py-2 rounded-lg">
-                <div>{callState.connected ? "Connected" : "Connecting..."}</div>
+                <div>{callState.connected ? "Connected" : "Calling..."}</div>
                 <div className="text-sm opacity-80">{activeCallerName}</div>
               </div>
+
               <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-4 p-6">
                 <button
                   onClick={() => calls.toggleMic()}

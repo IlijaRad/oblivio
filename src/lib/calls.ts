@@ -79,6 +79,12 @@ export type CallPayload =
   | CallIceBatchPayload
   | CallEndPayload;
 
+export interface MissedCallEvent {
+  withUserId: string;
+  hasVideo: boolean;
+  callId: string;
+}
+
 class CallsManager {
   private pc: RTCPeerConnection | null = null;
   private token: string | null = null;
@@ -86,12 +92,14 @@ class CallsManager {
     { urls: "stun:stun.l.google.com:19302" },
   ];
   private localStream: MediaStream | null = null;
+  private remoteStream: MediaStream | null = null; // FIX: cache remote stream
   private remoteVideo: HTMLVideoElement | null = null;
   private localVideo: HTMLVideoElement | null = null;
   private pendingCandidates: RTCIceCandidate[] = [];
   private callId: string | null = null;
   private withUserId: string | null = null;
   private hasVideo: boolean = false;
+  private wasConnected: boolean = false; // FIX: track if call was ever answered
   private incomingHandler: ((offer: IncomingOffer) => void) | null = null;
   private iceBatchTimeout: NodeJS.Timeout | null = null;
   private iceBatchQueue: Array<{
@@ -99,7 +107,6 @@ class CallsManager {
     sdpMid?: string | null;
     sdpMLineIndex?: number | null;
   }> = [];
-  private remoteStream: MediaStream | null = null;
 
   constructor() {
     this.setupEventListeners();
@@ -219,6 +226,7 @@ class CallsManager {
       }
     }
   }
+
   private queueIceCandidate(candidate: RTCIceCandidateInit) {
     const item = {
       candidate: candidate,
@@ -266,6 +274,7 @@ class CallsManager {
       headers,
     });
   }
+
   private emitState() {
     const state: CallState = {
       active: !!this.pc,
@@ -303,22 +312,30 @@ class CallsManager {
     try {
       this.withUserId = toUserId;
       this.hasVideo = video;
+      this.wasConnected = false;
       this.callId = `call_${Math.random().toString(36).substring(2, 15)}`;
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video,
       });
       this.localStream = stream;
       this.pc = new RTCPeerConnection({ iceServers: this.iceServers });
+
       this.pc.onconnectionstatechange = () => {
+        if (this.pc?.connectionState === "connected") {
+          this.wasConnected = true;
+        }
         this.emitState();
       };
       this.pc.oniceconnectionstatechange = () => {
         this.emitState();
       };
+
       this.localStream
         .getTracks()
         .forEach((t) => this.pc!.addTrack(t, this.localStream!));
+
       this.pc.onicecandidate = (e) => {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
       };
@@ -330,8 +347,10 @@ class CallsManager {
           }
         }
       };
+
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
+
       await this.clientApiClient("/calls/offer", {
         method: "POST",
         body: JSON.stringify({
@@ -341,6 +360,7 @@ class CallsManager {
           hasVideo: video,
         }),
       });
+
       this.emitState();
     } catch (error) {
       console.error("Start call failed:", error);
@@ -348,31 +368,39 @@ class CallsManager {
       throw error;
     }
   }
+
   async acceptOffer(offer: IncomingOffer): Promise<void> {
     try {
       this.callId = offer.callId;
       this.withUserId = offer.fromUserId;
       this.hasVideo = offer.hasVideo;
+      this.wasConnected = false;
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: this.hasVideo,
       });
       this.localStream = stream;
-      this.pc = new RTCPeerConnection({
-        iceServers: this.iceServers,
-      });
+      this.pc = new RTCPeerConnection({ iceServers: this.iceServers });
+
       this.pc.onconnectionstatechange = () => {
+        if (this.pc?.connectionState === "connected") {
+          this.wasConnected = true;
+        }
         this.emitState();
       };
       this.pc.oniceconnectionstatechange = () => {
         this.emitState();
       };
+
       this.localStream
         .getTracks()
         .forEach((t) => this.pc!.addTrack(t, this.localStream!));
+
       this.pc.onicecandidate = (e) => {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
       };
+
       this.pc.ontrack = (e) => {
         if (e.streams[0]) {
           this.remoteStream = e.streams[0];
@@ -381,29 +409,28 @@ class CallsManager {
           }
         }
       };
+
       await this.pc.setRemoteDescription(
-        new RTCSessionDescription({
-          type: "offer",
-          sdp: offer.offer,
-        }),
+        new RTCSessionDescription({ type: "offer", sdp: offer.offer }),
       );
+
       for (const cand of this.pendingCandidates) {
         await this.pc.addIceCandidate(cand).catch(console.warn);
       }
       this.pendingCandidates = [];
+
       const answer = await this.pc.createAnswer();
       await this.pc.setLocalDescription(answer);
+
       await this.clientApiClient("/calls/answer", {
         method: "POST",
         body: JSON.stringify({
           callId: this.callId,
           toUserId: this.withUserId,
-          sdp: {
-            type: answer.type,
-            sdp: answer.sdp,
-          },
+          sdp: { type: answer.type, sdp: answer.sdp },
         }),
       });
+
       this.emitState();
       window.dispatchEvent(new Event("calls:accepted"));
     } catch (error) {
@@ -413,21 +440,28 @@ class CallsManager {
     }
   }
 
+  async rejectCall(callId: string, fromUserId: string): Promise<void> {
+    try {
+      await this.clientApiClient("/calls/end", {
+        method: "POST",
+        body: JSON.stringify({ callId, toUserId: fromUserId }),
+      });
+    } catch (error) {
+      console.error("Failed to send rejection:", error);
+    }
+  }
+
   private async handleAnswer(event: CustomEvent<CallAnswerPayload>) {
     const { sdp } = event.detail;
     if (!this.pc) {
       console.warn("No peer connection for answer");
       return;
     }
-    if (this.pc.signalingState === "stable") {
-      return;
-    }
+    if (this.pc.signalingState === "stable") return;
+
     try {
       await this.pc.setRemoteDescription(
-        new RTCSessionDescription({
-          type: "answer",
-          sdp: sdp.sdp,
-        }),
+        new RTCSessionDescription({ type: "answer", sdp: sdp.sdp }),
       );
       for (const candidate of this.pendingCandidates) {
         await this.pc.addIceCandidate(candidate);
@@ -468,11 +502,7 @@ class CallsManager {
     };
     if (!candInit.candidate) return;
     const candidate = new RTCIceCandidate(candInit);
-    if (
-      this.pc &&
-      this.pc.remoteDescription &&
-      this.pc.remoteDescription.type
-    ) {
+    if (this.pc?.remoteDescription?.type) {
       try {
         await this.pc.addIceCandidate(candidate);
       } catch (e) {
@@ -484,6 +514,16 @@ class CallsManager {
   }
 
   private handleCallEnd() {
+    if (!this.wasConnected && this.withUserId) {
+      const missedEvent: MissedCallEvent = {
+        withUserId: this.withUserId,
+        hasVideo: this.hasVideo,
+        callId: this.callId ?? "",
+      };
+      window.dispatchEvent(
+        new CustomEvent("calls:missed", { detail: missedEvent }),
+      );
+    }
     this.cleanup();
     window.dispatchEvent(new Event("calls:stopRinging"));
   }
@@ -514,15 +554,16 @@ class CallsManager {
     this.iceBatchQueue = [];
     this.localStream?.getTracks().forEach((track) => track.stop());
     this.localStream = null;
+    this.remoteStream = null;
     this.pc?.close();
     this.pc = null;
     if (this.remoteVideo) this.remoteVideo.srcObject = null;
     if (this.localVideo) this.localVideo.srcObject = null;
     this.callId = null;
     this.withUserId = null;
+    this.wasConnected = false;
     this.pendingCandidates = [];
     this.emitState();
-    this.remoteStream = null;
   }
 
   attachElements(remote: HTMLVideoElement, local?: HTMLVideoElement) {
@@ -540,7 +581,6 @@ class CallsManager {
 
   toggleMic() {
     if (!this.localStream) return;
-
     const audioTrack = this.localStream.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
@@ -550,7 +590,6 @@ class CallsManager {
 
   toggleCamera() {
     if (!this.localStream) return;
-
     const videoTrack = this.localStream.getVideoTracks()[0];
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
@@ -573,7 +612,6 @@ class CallsManager {
 
   async setOutputDevice(deviceId: string) {
     if (!this.remoteVideo) return;
-
     try {
       if (
         "setSinkId" in this.remoteVideo &&

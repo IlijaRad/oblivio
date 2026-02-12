@@ -1,5 +1,4 @@
 "use client";
-
 import { calls, CallState, IncomingOffer } from "@/lib/calls";
 import {
   createContext,
@@ -46,6 +45,11 @@ export function CallProvider({
   const remoteRef = useRef<HTMLVideoElement | null>(null);
   const localRef = useRef<HTMLVideoElement | null>(null);
 
+  const incomingRef = useRef<IncomingOffer | null>(null);
+  useEffect(() => {
+    incomingRef.current = incoming;
+  }, [incoming]);
+
   useEffect(() => {
     if (token) calls.setToken(token);
   }, [token]);
@@ -60,12 +64,20 @@ export function CallProvider({
 
     const onAccepted = () => setIncoming(null);
 
+    const onStopRinging = () => {
+      if (incomingRef.current) {
+        setIncoming(null);
+      }
+    };
+
     window.addEventListener("calls:accepted", onAccepted);
     window.addEventListener("calls:state", onStateChange);
+    window.addEventListener("calls:stopRinging", onStopRinging);
 
     return () => {
       window.removeEventListener("calls:accepted", onAccepted);
       window.removeEventListener("calls:state", onStateChange);
+      window.removeEventListener("calls:stopRinging", onStopRinging);
     };
   }, []);
 

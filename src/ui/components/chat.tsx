@@ -7,7 +7,7 @@ import { getChat } from "@/lib/actions/thread/get-chat";
 import { markAsSeen } from "@/lib/actions/thread/seen";
 import { sendMessage } from "@/lib/actions/thread/send-message";
 import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
-import { calls } from "@/lib/calls";
+import { calls, MissedCallEvent } from "@/lib/calls";
 import {
   GetChatResult,
   isImageAttachment,
@@ -77,6 +77,20 @@ type ChatStyles = (typeof themeStyles)[keyof typeof themeStyles];
 
 const THEME_STORAGE_KEY = "chat-theme-preference";
 
+interface MissedCallMessage {
+  id: string;
+  type: "missed-call";
+  hasVideo: boolean;
+  fromUserId: string;
+  createdAt: string;
+}
+
+type ChatItem = Message | MissedCallMessage;
+
+function isMissedCallMessage(item: ChatItem): item is MissedCallMessage {
+  return (item as MissedCallMessage).type === "missed-call";
+}
+
 export default function Chat({
   contact,
   currentUser,
@@ -90,7 +104,7 @@ export default function Chat({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatItem[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
@@ -104,6 +118,7 @@ export default function Chat({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const stopRequestedRef = useRef(false);
 
   const contactAvatar = contact.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
@@ -112,6 +127,32 @@ export default function Chat({
   const myAvatarUrl = currentUser.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(currentUser.avatarKey)}`
     : null;
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<MissedCallEvent>).detail;
+      if (detail.withUserId !== contact.id) return;
+
+      const missedMsg: MissedCallMessage = {
+        id: `missed-${detail.callId}`,
+        type: "missed-call",
+        hasVideo: detail.hasVideo,
+        fromUserId: currentUser.id,
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, missedMsg]);
+
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 50);
+    };
+
+    window.addEventListener("calls:missed", handler);
+    return () => window.removeEventListener("calls:missed", handler);
+  }, [contact.id, currentUser.id]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isSending) return;
@@ -301,19 +342,19 @@ export default function Chat({
         if (String(payload.with) !== contact.id) return;
 
         setMessages((prev) =>
-          prev.map((m) =>
-            m.fromUserId === currentUser.id &&
-            m.toUserId === String(payload.with) &&
-            m.createdAt <= payload.upTo
+          prev.map((m) => {
+            if (isMissedCallMessage(m)) return m;
+            return m.fromUserId === currentUser.id &&
+              m.toUserId === String(payload.with) &&
+              m.createdAt <= payload.upTo
               ? { ...m, readAt: new Date(payload.upTo).toISOString() }
-              : m,
-          ),
+              : m;
+          }),
         );
         return;
       }
 
       if (isFriendEvent(payload)) return;
-
       if (isCallEvent(payload)) return;
 
       if (isMessageEvent(payload)) {
@@ -331,7 +372,6 @@ export default function Chat({
 
         setMessages((prev) => {
           if (prev.some((m) => m.id === payload.id)) return prev;
-
           return [...prev, payload];
         });
       }
@@ -339,10 +379,13 @@ export default function Chat({
     return remove;
   }, [contact.id, currentUser.id, addListener]);
 
-  const handleMarkAsSeen = async (msgs: Message[]) => {
-    if (msgs.length === 0) return;
+  const handleMarkAsSeen = async (msgs: ChatItem[]) => {
+    const realMessages = msgs.filter(
+      (m): m is Message => !isMissedCallMessage(m),
+    );
+    if (realMessages.length === 0) return;
 
-    const lastReceived = [...msgs]
+    const lastReceived = [...realMessages]
       .reverse()
       .find((m) => m.fromUserId === contact.id);
 
@@ -352,8 +395,21 @@ export default function Chat({
   };
 
   const startRecording = async () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setRecordingTime(0);
+    stopRequestedRef.current = false;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      if (stopRequestedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -392,6 +448,13 @@ export default function Chat({
       mediaRecorder.start();
       setIsRecording(true);
 
+      if (stopRequestedRef.current) {
+        mediaRecorder.stop();
+        setIsRecording(false);
+        setRecordingTime(0);
+        return;
+      }
+
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
@@ -402,8 +465,14 @@ export default function Chat({
   };
 
   const stopRecording = () => {
+    stopRequestedRef.current = true;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     if (mediaRecorderRef.current && isRecording) {
-      if (timerRef.current) clearInterval(timerRef.current);
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setRecordingTime(0);
@@ -482,7 +551,7 @@ export default function Chat({
               }}
               aria-label="Start voice call"
             >
-              <IconPhone />
+              <IconPhone className="text-white" />
             </IconButton>
             <IconButton
               className="size-9 bg-blue-500/90 hover:bg-blue-600"
@@ -496,7 +565,7 @@ export default function Chat({
               }}
               aria-label="Start video call"
             >
-              <IconCamera />
+              <IconCamera className="text-white" />
             </IconButton>
 
             <DropdownMenu.Root>
@@ -562,6 +631,17 @@ export default function Chat({
           {messages.length > 0 ? (
             <div className="space-y-5">
               {messages.map((msg) => {
+                if (isMissedCallMessage(msg)) {
+                  const isMeCaller = msg.fromUserId === currentUser.id;
+                  return (
+                    <MissedCallBubble
+                      key={msg.id}
+                      msg={msg}
+                      isMeCaller={isMeCaller}
+                    />
+                  );
+                }
+
                 const isMe = msg.fromUserId === currentUser.id;
 
                 return (
@@ -743,6 +823,42 @@ export default function Chat({
             styles={styles}
           />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MissedCallBubble({
+  msg,
+  isMeCaller,
+}: {
+  msg: MissedCallMessage;
+  isMeCaller: boolean;
+}) {
+  const time = new Date(msg.createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const icon = msg.hasVideo ? (
+    <IconCamera className={" text-red-600 dark:text-red-400"} />
+  ) : (
+    <IconPhone className={" text-red-600 dark:text-red-400"} />
+  );
+
+  return (
+    <div className="flex justify-center">
+      <div
+        className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-medium
+          ${"bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400"}`}
+      >
+        {icon}
+        <span>
+          {isMeCaller
+            ? `Missed ${msg.hasVideo ? "video" : ""} call`
+            : `Incoming ${msg.hasVideo ? "video" : ""} call`}
+        </span>
+        <span className="opacity-60">{time}</span>
       </div>
     </div>
   );
