@@ -98,6 +98,7 @@ export default function Chat({
   const myAvatarUrl = currentUser.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(currentUser.avatarKey)}`
     : null;
+  const mimeTypeRef = useRef<string>("");
 
   useEffect(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
@@ -309,23 +310,45 @@ export default function Chat({
         return;
       }
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/mp4")
-        ? "audio/mp4"
-        : "audio/webm";
-      const ext = mimeType === "audio/mp4" ? "m4a" : "webm";
+      const mimeType =
+        [
+          "audio/mp4",
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/ogg;codecs=opus",
+        ].find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      mimeTypeRef.current = mediaRecorder.mimeType;
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+
       mediaRecorder.ondataavailable = (e: BlobEvent) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
+
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        if (audioBlob.size < 1000) return;
-        const file = new File([audioBlob], `voice-${Date.now()}.${ext}`, {
-          type: mimeType,
+        const actualMime = mediaRecorder.mimeType.split(";")[0].trim();
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: actualMime,
         });
+
+        if (audioBlob.size < 1000) return;
+
+        const ext = actualMime.includes("mp4")
+          ? "m4a"
+          : actualMime.includes("ogg")
+            ? "ogg"
+            : "webm";
+
+        const file = new File([audioBlob], `voice-${Date.now()}.${ext}`, {
+          type: actualMime,
+        });
+
         const upload = await uploadToS3(file);
         if (upload) {
           const deviceId = await getOrCreateDeviceId();
@@ -340,14 +363,17 @@ export default function Chat({
         }
         stream.getTracks().forEach((t) => t.stop());
       };
+
       mediaRecorder.start();
       setIsRecording(true);
+
       if (stopRequestedRef.current) {
         mediaRecorder.stop();
         setIsRecording(false);
         setRecordingTime(0);
         return;
       }
+
       timerRef.current = setInterval(
         () => setRecordingTime((prev) => prev + 1),
         1000,

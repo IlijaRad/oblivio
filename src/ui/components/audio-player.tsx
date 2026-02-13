@@ -1,4 +1,5 @@
 "use client";
+
 import {
   IconPlayerPlayFilled,
   IconPlayerStopFilled,
@@ -10,31 +11,22 @@ import IconButton from "./icon-button";
 
 const audioManager = {
   current: null as HTMLAudioElement | null,
-  currentStop: null as (() => void) | null,
-  async play(audio: HTMLAudioElement, onStop: () => void): Promise<boolean> {
+  stop() {
+    if (this.current) {
+      this.current.pause();
+      this.current.currentTime = 0;
+      this.current = null;
+    }
+  },
+  register(audio: HTMLAudioElement) {
     if (this.current && this.current !== audio) {
       this.current.pause();
       this.current.currentTime = 0;
-      this.currentStop?.();
     }
     this.current = audio;
-    this.currentStop = onStop;
-    try {
-      await audio.play();
-      return true;
-    } catch (err) {
-      this.current = null;
-      this.currentStop = null;
-      throw err;
-    }
   },
-  stop(audio: HTMLAudioElement) {
-    if (this.current === audio) {
-      this.current = null;
-      this.currentStop = null;
-    }
-    audio.pause();
-    audio.currentTime = 0;
+  unregister(audio: HTMLAudioElement) {
+    if (this.current === audio) this.current = null;
   },
 };
 
@@ -46,82 +38,68 @@ export default function AudioPlayer({
   className: string;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [errorSrc, setErrorSrc] = useState<string | null>(null);
-  const error = errorSrc === src;
-  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const loadedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const isLoadingRef = useRef(false);
-  const stopLocal = () => setIsPlaying(false);
 
-  const togglePlay = async () => {
+  const togglePlay = () => {
     const audio = audioRef.current;
-    if (!audio || !src) {
-      setErrorSrc(src);
-      return;
-    }
+    if (!audio) return;
 
     if (isPlaying) {
-      audioManager.stop(audio);
+      audio.pause();
+      audioManager.unregister(audio);
       setIsPlaying(false);
       return;
     }
 
-    try {
-      if (!loadedSrc) {
-        if (isLoadingRef.current) return;
-        isLoadingRef.current = true;
-
-        await new Promise<void>((resolve, reject) => {
-          const cleanup = () => {
-            audio.removeEventListener("canplay", onCanPlay);
-            audio.removeEventListener("error", onError);
-            isLoadingRef.current = false;
-          };
-          const onCanPlay = () => {
-            cleanup();
-            resolve();
-          };
-          const onError = () => {
-            const mediaError = audio.error;
-            console.error("Audio load failed:", {
-              code: mediaError?.code,
-              message: mediaError?.message,
-            });
-            cleanup();
-            reject(new Error("load-failed"));
-          };
-          audio.addEventListener("canplay", onCanPlay);
-          audio.addEventListener("error", onError);
-
-          audio.src = src;
-          audio.load();
-          setLoadedSrc(src);
-        });
-      }
-
-      await audioManager.play(audio, stopLocal);
-      setIsPlaying(true);
-    } catch (err: unknown) {
-      setIsPlaying(false);
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setErrorSrc(src);
+    if (!loadedRef.current) {
+      audio.src = src;
+      audio.load();
+      loadedRef.current = true;
     }
+
+    audioManager.register(audio);
+
+    window.dispatchEvent(
+      new CustomEvent("audioplayer:play", { detail: { src } }),
+    );
+
+    audio
+      .play()
+      .then(() => {
+        setIsPlaying(true);
+      })
+      .catch((err) => {
+        audioManager.unregister(audio);
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(true);
+      });
   };
 
   useEffect(() => {
-    const audio = audioRef.current;
-    return () => {
-      if (audio) audioManager.stop(audio);
+    const onOtherPlay = (e: Event) => {
+      const detail = (e as CustomEvent<{ src: string }>).detail;
+      if (detail.src !== src && isPlaying) {
+        setIsPlaying(false);
+      }
     };
-  }, []);
+    window.addEventListener("audioplayer:play", onOtherPlay);
+    return () => window.removeEventListener("audioplayer:play", onOtherPlay);
+  }, [src, isPlaying]);
 
   return (
     <div className="flex items-center gap-3 min-w-50">
       <audio
         ref={audioRef}
+        preload="none"
         onEnded={() => {
+          const audio = audioRef.current;
+          if (audio) audioManager.unregister(audio);
           setIsPlaying(false);
-          if (audioRef.current) audioManager.stop(audioRef.current);
+        }}
+        onError={() => {
+          if (loadedRef.current) setError(true);
         }}
         className="hidden"
       />
