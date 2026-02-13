@@ -51,7 +51,7 @@ export default function ChatLoader() {
 
         <div className="flex gap-3 p-4 shrink-0">
           <div className="flex-1 h-12 rounded-md bg-gray-200 dark:bg-zinc-800 animate-pulse" />
-          <div className="size-12 rounded-md bg-gray-200 dark:bg-zinc-800 animate-pulse" />
+          <div className="h-12 w-16 rounded-md bg-gray-200 dark:bg-zinc-800 animate-pulse" />
         </div>
       </div>
     </div>
