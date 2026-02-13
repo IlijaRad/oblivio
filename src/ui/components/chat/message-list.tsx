@@ -120,9 +120,27 @@ function Avatar({ src, fallback }: { src: string | null; fallback: string }) {
   return (
     <div className="size-11 rounded-md bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0 relative overflow-hidden border border-black/5 dark:border-white/5 shadow-sm">
       {src ? (
-        <Image src={src} fill alt="" className="object-cover" unoptimized />
+        <Image
+          src={src}
+          fill
+          alt="avatar"
+          className="object-cover select-none"
+          style={{
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
+          unoptimized
+        />
       ) : (
-        <span className="font-bold text-zinc-900 dark:text-white uppercase">
+        <span
+          className="font-bold select-none text-zinc-900 dark:text-white uppercase"
+          style={{
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
+        >
           {fallback}
         </span>
       )}

@@ -75,9 +75,13 @@ export default function ButtonSend({
     const btn = buttonRef.current;
     if (!btn || !isMicMode) return;
 
+    let lastPointerWasTouch = false;
+
     const onPointerDown = (e: PointerEvent) => {
       if (buttonDisabled) return;
       e.preventDefault();
+
+      lastPointerWasTouch = e.pointerType === "touch";
 
       if (e.pointerType === "touch") {
         btn.setPointerCapture(e.pointerId);
@@ -99,8 +103,8 @@ export default function ButtonSend({
       }
     };
 
-    const onClickMic = (e: MouseEvent) => {
-      if ((e as PointerEvent).pointerType === "touch") return;
+    const onClickMic = () => {
+      if (lastPointerWasTouch) return;
       if (buttonDisabled) return;
       if (isRecordingRef.current) {
         stopRecordingRef.current();
@@ -133,7 +137,8 @@ export default function ButtonSend({
     <motion.button
       ref={buttonRef}
       onClick={!isMicMode ? handleSendMessage : undefined}
-      className={`size-12 shrink-0 rounded-md ${styles.sent} flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale touch-none cursor-pointer relative overflow-hidden`}
+      onContextMenu={(e) => e.preventDefault()}
+      className={`h-12 w-16 shrink-0 select-none touch-none [-webkit-touch-callout:none] rounded-md ${styles.sent} flex items-center justify-center hover:brightness-110 transition-all shadow-md disabled:opacity-50 disabled:grayscale touch-none cursor-pointer relative overflow-hidden`}
       disabled={buttonDisabled}
       aria-label={inputValue.trim() ? "Send message" : "Record a voice message"}
       style={
@@ -141,6 +146,8 @@ export default function ButtonSend({
           WebkitUserSelect: "none",
           userSelect: "none",
           WebkitTouchCallout: "none",
+          WebkitTapHighlightColor: "transparent",
+          MozUserSelect: "none",
         } as React.CSSProperties
       }
     >

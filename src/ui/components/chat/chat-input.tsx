@@ -56,7 +56,14 @@ export default function ChatInput({
         {isRecording ? (
           <div className="flex items-center gap-2 w-full animate-pulse">
             <div className="size-2 rounded-full bg-red-500" />
-            <span className="text-sm font-medium text-red-500">
+            <span
+              className="text-sm font-medium text-red-500 select-none pointer-events-none"
+              style={{
+                WebkitUserSelect: "none",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+              }}
+            >
               {Math.floor(recordingTime / 60)}:
               {(recordingTime % 60).toString().padStart(2, "0")}
             </span>
