@@ -2,10 +2,17 @@
 
 import { useWebSocket } from "@/context/WebSocketProvider";
 import { searchFriends } from "@/lib/actions/friends/search";
+import { MissedCallEvent } from "@/lib/calls";
 import { SidebarContact } from "@/lib/definitions";
+import {
+  isCallEvent,
+  isFriendEvent,
+  isMessageEvent,
+  isSeenEvent,
+} from "@/lib/websocket";
 import { IconSearch } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import AddContactModal from "./add-contact-modal";
 import ContactItem from "./contact-item";
@@ -23,6 +30,10 @@ export function SidebarClient({ initialFriends }: SidebarProps) {
     initialFriends.map((f) => ({ ...f, unreadCount: 0 })),
   );
   const { addListener } = useWebSocket();
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     setFriends(initialFriends);
@@ -30,7 +41,13 @@ export function SidebarClient({ initialFriends }: SidebarProps) {
 
   useEffect(() => {
     const remove = addListener((payload) => {
-      if (payload.type === "seen" || payload.type === "friend") return;
+      if (
+        isSeenEvent(payload) ||
+        isFriendEvent(payload) ||
+        isCallEvent(payload)
+      )
+        return;
+      if (!isMessageEvent(payload)) return;
       if (!payload.fromUserId) return;
 
       const messageFromId = payload.fromUserId;
@@ -46,7 +63,6 @@ export function SidebarClient({ initialFriends }: SidebarProps) {
         );
       }
     });
-
     return remove;
   }, [addListener, pathname]);
 
@@ -62,9 +78,29 @@ export function SidebarClient({ initialFriends }: SidebarProps) {
   }, [pathname]);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      return;
-    }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<MissedCallEvent>).detail;
+      const currentChatId = pathnameRef.current.split("/").pop();
+      if (detail.withUserId === currentChatId) return;
+
+      setFriends((prev) => {
+        const match = prev.find((f) => f.id === detail.withUserId);
+        if (!match) {
+          return prev;
+        }
+        return prev.map((f) =>
+          f.id === detail.withUserId
+            ? { ...f, unreadCount: (f.unreadCount || 0) + 1 }
+            : f,
+        );
+      });
+    };
+    window.addEventListener("calls:missed", handler);
+    return () => window.removeEventListener("calls:missed", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
 
     const delayDebounceFn = setTimeout(async () => {
       try {
@@ -75,9 +111,7 @@ export function SidebarClient({ initialFriends }: SidebarProps) {
           return;
         }
 
-        if (!Array.isArray(results)) {
-          return;
-        }
+        if (!Array.isArray(results)) return;
 
         const friendIds = new Set(friends.map((f) => f.id));
         const newSuggestions: SidebarContact[] = results

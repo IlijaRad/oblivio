@@ -69,10 +69,8 @@ export default function AudioPlayer({
       return;
     }
 
-    // Load src on first play only
     if (!loadedSrc) {
       setLoadedSrc(src);
-      // Wait for the audio element to reflect the new src before playing
       await new Promise<void>((resolve) => {
         const onCanPlay = () => {
           audio.removeEventListener("canplay", onCanPlay);

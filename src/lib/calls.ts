@@ -92,14 +92,14 @@ class CallsManager {
     { urls: "stun:stun.l.google.com:19302" },
   ];
   private localStream: MediaStream | null = null;
-  private remoteStream: MediaStream | null = null; // FIX: cache remote stream
+  private remoteStream: MediaStream | null = null;
   private remoteVideo: HTMLVideoElement | null = null;
   private localVideo: HTMLVideoElement | null = null;
   private pendingCandidates: RTCIceCandidate[] = [];
   private callId: string | null = null;
   private withUserId: string | null = null;
   private hasVideo: boolean = false;
-  private wasConnected: boolean = false; // FIX: track if call was ever answered
+  private wasConnected: boolean = false;
   private incomingHandler: ((offer: IncomingOffer) => void) | null = null;
   private iceBatchTimeout: NodeJS.Timeout | null = null;
   private iceBatchQueue: Array<{
@@ -309,6 +309,7 @@ class CallsManager {
   }
 
   async startCall(toUserId: string, video: boolean = false): Promise<void> {
+    this.releaseLocalStream();
     try {
       this.withUserId = toUserId;
       this.hasVideo = video;
@@ -370,6 +371,7 @@ class CallsManager {
   }
 
   async acceptOffer(offer: IncomingOffer): Promise<void> {
+    this.releaseLocalStream();
     try {
       this.callId = offer.callId;
       this.withUserId = offer.fromUserId;
@@ -510,6 +512,13 @@ class CallsManager {
       }
     } else {
       this.pendingCandidates.push(candidate);
+    }
+  }
+
+  private releaseLocalStream() {
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track) => track.stop());
+      this.localStream = null;
     }
   }
 

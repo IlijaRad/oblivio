@@ -37,7 +37,7 @@ export default function IncomingCall({
     >
       <div
         className={`
-          relative w-full max-w-[380px] ${bgColor} rounded-xl shadow-2xl
+          relative w-full max-w-95 ${bgColor} rounded-xl shadow-2xl
           text-white overflow-hidden
         `}
       >
@@ -48,21 +48,21 @@ export default function IncomingCall({
         </div>
 
         <div className="pt-24 pb-10 flex flex-col items-center">
-          <div className="relative w-[167px] h-[163px]">
+          <div className="relative w-41.75 h-40.75">
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-[127px] h-[124px] rounded-[31px] border border-white/50" />
-              <div className="absolute w-[113px] h-[110px] rounded-[25px] border border-white" />
-              <div className="absolute w-[99px]  h-[96px]  rounded-[20px] border-2 border-white" />
-              <div className="absolute w-[85px]  h-[82px]  rounded-[14px] border-[3px] border-white" />
-              <div className="absolute w-[71px]  h-[68px]  rounded-[9px]  border-[4px] border-white" />
-              <div className="absolute w-[57px]  h-[54px]  rounded-[5px]  border-[5px] border-white" />
+              <div className="w-31.75 h-31 rounded-[31px] border border-white/50" />
+              <div className="absolute w-28.25 h-27.5 rounded-[25px] border border-white" />
+              <div className="absolute w-24.75 h-24 rounded-[20px] border-2 border-white" />
+              <div className="absolute w-21.25 h-20.5 rounded-[14px] border-[3px] border-white" />
+              <div className="absolute w-17.75 h-17 rounded-[9px] border-4 border-white" />
+              <div className="absolute w-14.25 h-13.5 rounded-[5px] border-[5px] border-white" />
             </div>
 
-            <div className="absolute inset-[37px] w-[93px] h-[89px]">
+            <div className="absolute inset-9.25 w-23.25 h-22.25">
               <div className="w-full h-full rounded-[5px] bg-white" />
               {isVideo ? (
                 <svg
-                  className="absolute left-[19px] top-4"
+                  className="absolute left-4.75 top-4"
                   width="56"
                   height="56"
                   viewBox="0 0 56 56"
@@ -76,7 +76,7 @@ export default function IncomingCall({
                 </svg>
               ) : (
                 <svg
-                  className="absolute left-[19px] top-4"
+                  className="absolute left-4.75 top-4"
                   width="56"
                   height="56"
                   viewBox="0 0 56 56"
@@ -92,7 +92,7 @@ export default function IncomingCall({
             </div>
 
             <div
-              className="absolute inset-[37px] w-[93px] h-[89px] rounded-[5px] overflow-hidden flex items-center justify-center text-white text-3xl font-medium select-none"
+              className="absolute inset-9.25 w-23.25 h-22.25 rounded-[5px] overflow-hidden flex items-center justify-center text-white text-3xl font-medium select-none"
               style={{ backgroundColor: getColorFromName(callerName) }}
             >
               {callerImage ? (
@@ -145,7 +145,7 @@ export default function IncomingCall({
           <div className="flex gap-4">
             <button
               onClick={onReject}
-              className="flex-[2] h-12 rounded-lg bg-white flex items-center justify-center gap-2 hover:opacity-95 active:opacity-90 transition"
+              className="flex-2 h-12 rounded-lg bg-white flex items-center justify-center gap-2 hover:opacity-95 active:opacity-90 transition"
             >
               <svg
                 width="21"

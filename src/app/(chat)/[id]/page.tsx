@@ -2,7 +2,7 @@ import { getUser } from "@/lib/actions/auth/get-user";
 import { getContacts } from "@/lib/actions/friends/get-contacts";
 import { getChat } from "@/lib/actions/thread/get-chat";
 import ChatLoader from "@/ui/chat-loader";
-import Chat from "@/ui/components/chat";
+import Chat from "@/ui/components/chat/chat";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 

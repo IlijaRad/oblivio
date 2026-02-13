@@ -43,12 +43,20 @@ export function CallOverlay({
                 await calls.acceptOffer(incoming);
                 setIncoming(null);
               } catch (e) {
-                console.error(e);
-                toast.error("Failed to accept call");
+                const err = e as DOMException;
+                if (err?.name === "NotReadableError") {
+                  toast.error(
+                    "Microphone is in use by another app. Please close it and try again.",
+                  );
+                } else if (err?.name === "NotAllowedError") {
+                  toast.error("Microphone permission denied.");
+                } else {
+                  toast.error("Failed to accept call");
+                }
+                setIncoming(null);
               }
             }}
             onReject={async () => {
-              // FIX: notify the caller so their modal closes too
               try {
                 await calls.rejectCall(incoming.callId, incoming.fromUserId);
               } catch (e) {
@@ -66,7 +74,7 @@ export function CallOverlay({
           <div
             role="dialog"
             aria-modal="true"
-            className="fixed inset-0 bg-black z-[2000] flex flex-col"
+            className="fixed inset-0 bg-black z-2000 flex flex-col"
           >
             <div className="relative w-full h-full">
               <video
