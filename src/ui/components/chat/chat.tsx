@@ -308,19 +308,23 @@ export default function Chat({
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
-      const mediaRecorder = new MediaRecorder(stream);
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "audio/webm";
+      const ext = mimeType === "audio/mp4" ? "m4a" : "webm";
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       mediaRecorder.ondataavailable = (e: BlobEvent) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         if (audioBlob.size < 1000) return;
-        const file = new File([audioBlob], `voice-${Date.now()}.webm`, {
-          type: "audio/webm",
+        const file = new File([audioBlob], `voice-${Date.now()}.${ext}`, {
+          type: mimeType,
         });
         const upload = await uploadToS3(file);
         if (upload) {

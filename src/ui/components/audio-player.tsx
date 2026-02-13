@@ -11,7 +11,6 @@ import IconButton from "./icon-button";
 const audioManager = {
   current: null as HTMLAudioElement | null,
   currentStop: null as (() => void) | null,
-
   async play(audio: HTMLAudioElement, onStop: () => void): Promise<boolean> {
     if (this.current && this.current !== audio) {
       this.current.pause();
@@ -29,7 +28,6 @@ const audioManager = {
       throw err;
     }
   },
-
   stop(audio: HTMLAudioElement) {
     if (this.current === audio) {
       this.current = null;
@@ -50,10 +48,9 @@ export default function AudioPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [errorSrc, setErrorSrc] = useState<string | null>(null);
   const error = errorSrc === src;
-
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isLoadingRef = useRef(false);
   const stopLocal = () => setIsPlaying(false);
 
   const togglePlay = async () => {
@@ -69,33 +66,44 @@ export default function AudioPlayer({
       return;
     }
 
-    if (!loadedSrc) {
-      setLoadedSrc(src);
-      await new Promise<void>((resolve) => {
-        const onCanPlay = () => {
-          audio.removeEventListener("canplay", onCanPlay);
-          audio.removeEventListener("error", onError);
-          resolve();
-        };
-        const onError = () => {
-          audio.removeEventListener("canplay", onCanPlay);
-          audio.removeEventListener("error", onError);
-          resolve();
-        };
-        audio.addEventListener("canplay", onCanPlay);
-        audio.addEventListener("error", onError);
-        audio.load();
-      });
-    }
-
     try {
+      if (!loadedSrc) {
+        if (isLoadingRef.current) return;
+        isLoadingRef.current = true;
+
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = () => {
+            audio.removeEventListener("canplay", onCanPlay);
+            audio.removeEventListener("error", onError);
+            isLoadingRef.current = false;
+          };
+          const onCanPlay = () => {
+            cleanup();
+            resolve();
+          };
+          const onError = () => {
+            const mediaError = audio.error;
+            console.error("Audio load failed:", {
+              code: mediaError?.code,
+              message: mediaError?.message,
+            });
+            cleanup();
+            reject(new Error("load-failed"));
+          };
+          audio.addEventListener("canplay", onCanPlay);
+          audio.addEventListener("error", onError);
+
+          audio.src = src;
+          audio.load();
+          setLoadedSrc(src);
+        });
+      }
+
       await audioManager.play(audio, stopLocal);
       setIsPlaying(true);
     } catch (err: unknown) {
       setIsPlaying(false);
-      if (err instanceof DOMException) {
-        console.warn("AudioPlayer play failed:", err.name, err.message);
-      }
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setErrorSrc(src);
     }
   };
@@ -111,13 +119,9 @@ export default function AudioPlayer({
     <div className="flex items-center gap-3 min-w-50">
       <audio
         ref={audioRef}
-        src={loadedSrc ?? undefined}
         onEnded={() => {
           setIsPlaying(false);
           if (audioRef.current) audioManager.stop(audioRef.current);
-        }}
-        onError={() => {
-          if (loadedSrc) setErrorSrc(loadedSrc);
         }}
         className="hidden"
       />

@@ -55,7 +55,14 @@ export default function ChatInput({
       >
         {isRecording ? (
           <div className="flex items-center gap-2 w-full animate-pulse">
-            <div className="size-2 rounded-full bg-red-500" />
+            <div
+              className="size-2 rounded-full bg-red-500 select-none"
+              style={{
+                WebkitUserSelect: "none",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+              }}
+            />
             <span
               className="text-sm font-medium text-red-500 select-none pointer-events-none"
               style={{
