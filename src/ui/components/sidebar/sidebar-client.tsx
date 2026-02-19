@@ -148,7 +148,7 @@ export function SidebarClient({ initialFriends }: SidebarProps) {
           : "hidden lg:block pl-4 sm:pl-6",
       )}
     >
-      <div className="w-full h-[calc(100vh-77px)] bg-white dark:bg-zinc-900 rounded-md flex flex-col">
+      <div className="w-full h-full bg-white dark:bg-zinc-900 rounded-md flex flex-col">
         <div className="px-3 py-4 flex items-center justify-between">
           <h2 className="text-xl font-normal">Contacts</h2>
           <AddContactModal />

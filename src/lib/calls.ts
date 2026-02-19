@@ -120,8 +120,9 @@ class CallsManager {
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.iceServers) {
-          this.iceServers = data.iceServers;
+
+        if (data.servers) {
+          this.iceServers = data.servers;
         }
       } else {
         console.error("ICE Config fetch failed:", response.status);

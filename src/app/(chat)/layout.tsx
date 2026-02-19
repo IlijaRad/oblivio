@@ -45,7 +45,7 @@ export default async function Layout({
       <ClientLayout userId={user.id} token={token} contacts={contacts}>
         <HeaderClient user={user} initialRequestCount={count} />
         <main className="flex-1 min-h-0">
-          <div className="flex h-full gap-5 lg:gap-5.5 relative">
+          <div className="flex h-full gap-5 lg:pb-4 lg:gap-5.5 relative">
             <Sidebar />
             {children}
           </div>
