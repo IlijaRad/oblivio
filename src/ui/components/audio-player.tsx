@@ -41,26 +41,28 @@ export default function AudioPlayer({
   const [error, setError] = useState(false);
   const loadedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const intentionalStopRef = useRef(false);
 
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (isPlaying) {
+      intentionalStopRef.current = true;
       audio.pause();
       audioManager.unregister(audio);
       setIsPlaying(false);
       return;
     }
 
-    if (!loadedRef.current) {
-      audio.src = src;
-      audio.load();
-      loadedRef.current = true;
-    }
+    intentionalStopRef.current = true;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.src = src;
+    audio.load();
+    loadedRef.current = true;
 
     audioManager.register(audio);
-
     window.dispatchEvent(
       new CustomEvent("audioplayer:play", { detail: { src } }),
     );
@@ -68,10 +70,12 @@ export default function AudioPlayer({
     audio
       .play()
       .then(() => {
+        intentionalStopRef.current = false;
         setIsPlaying(true);
       })
       .catch((err) => {
         audioManager.unregister(audio);
+        intentionalStopRef.current = false;
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(true);
       });
@@ -81,6 +85,13 @@ export default function AudioPlayer({
     const onOtherPlay = (e: Event) => {
       const detail = (e as CustomEvent<{ src: string }>).detail;
       if (detail.src !== src && isPlaying) {
+        intentionalStopRef.current = true;
+        const audio = audioRef.current;
+        if (audio) {
+          audio.pause();
+          audio.src = "";
+          loadedRef.current = false;
+        }
         setIsPlaying(false);
       }
     };
@@ -99,7 +110,13 @@ export default function AudioPlayer({
           setIsPlaying(false);
         }}
         onError={() => {
-          if (loadedRef.current) setError(true);
+          if (intentionalStopRef.current) {
+            intentionalStopRef.current = false;
+            return;
+          }
+          if (loadedRef.current) {
+            setError(true);
+          }
         }}
         className="hidden"
       />
