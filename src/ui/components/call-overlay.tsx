@@ -1,6 +1,17 @@
 "use client";
+
 import { calls } from "@/lib/calls";
-import { IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import {
+  IconArrowsMaximize,
+  IconArrowsMinimize,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconPhoneOff,
+  IconScreenShare,
+  IconScreenShareOff,
+  IconVideo,
+  IconVideoOff,
+} from "@tabler/icons-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -52,7 +63,7 @@ export function CallOverlay({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (!isDragging || callFullscreen) return;
-      e.preventDefault(); // Prevent scrolling
+      e.preventDefault();
       const touch = e.touches[0];
       const newX = touch.clientX - dragStartRef.current.x;
       const newY = touch.clientY - dragStartRef.current.y;
@@ -74,7 +85,7 @@ export function CallOverlay({
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd);
-    window.addEventListener("touchcancel", handleTouchEnd); // Handle interruptions
+    window.addEventListener("touchcancel", handleTouchEnd);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
@@ -103,19 +114,6 @@ export function CallOverlay({
       y: touch.clientY - position.y,
     };
   };
-
-  useEffect(() => {
-    if (callState.active && callFullscreen) {
-      const timeout = setTimeout(() => {
-        const r = remoteRef.current;
-        const l = localRef.current;
-        if (r && l) {
-          calls.attachElements(r, l);
-        }
-      }, 100);
-      return () => clearTimeout(timeout);
-    }
-  }, [callState.active, callFullscreen, remoteRef, localRef]);
 
   if (!isClient) return null;
 
@@ -174,7 +172,6 @@ export function CallOverlay({
         createPortal(
           <div
             ref={dragRef}
-            key={callState.callId || undefined}
             role="dialog"
             aria-modal="true"
             onMouseDown={handleMouseDown}
@@ -196,7 +193,12 @@ export function CallOverlay({
           >
             <div className="relative w-full h-full">
               <video
-                ref={remoteRef}
+                ref={(el) => {
+                  if (el && remoteRef.current !== el) {
+                    remoteRef.current = el;
+                    calls.attachElements(el, localRef.current ?? undefined);
+                  }
+                }}
                 autoPlay
                 playsInline
                 className={
@@ -207,11 +209,20 @@ export function CallOverlay({
               />
               {callFullscreen && (
                 <video
-                  ref={localRef}
+                  ref={(el) => {
+                    if (el && localRef.current !== el) {
+                      localRef.current = el;
+                      calls.attachElements(remoteRef.current!, el);
+                    }
+                  }}
                   autoPlay
                   playsInline
                   muted
-                  className="absolute right-4 bottom-20 w-40 h-30 object-cover rounded-lg border-2 border-white/60"
+                  className={`absolute right-4 bottom-20 w-40 h-30 object-cover rounded-lg transition-opacity duration-200 ${
+                    callState.hasVideo || callState.isScreenSharing
+                      ? "opacity-100 border-2 border-white/60"
+                      : "opacity-0 pointer-events-none border-0"
+                  }`}
                 />
               )}
 
@@ -238,23 +249,60 @@ export function CallOverlay({
               <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-4 p-6">
                 <button
                   onClick={() => calls.toggleMic()}
-                  className={`px-6 py-3 rounded-full ${callState.micMuted ? "bg-red-500" : "bg-gray-700"} text-white`}
+                  className={`p-4 rounded-full ${callState.micMuted ? "bg-red-500" : "bg-gray-700"} text-white`}
+                  title={callState.micMuted ? "Unmute" : "Mute"}
                 >
-                  {callState.micMuted ? "Unmute" : "Mute"}
+                  {callState.micMuted ? (
+                    <IconMicrophoneOff size={20} />
+                  ) : (
+                    <IconMicrophone size={20} />
+                  )}
                 </button>
+
                 {callState.hasVideo && (
                   <button
                     onClick={() => calls.toggleCamera()}
-                    className={`px-6 py-3 rounded-full ${callState.cameraOn ? "bg-gray-700" : "bg-red-500"} text-white`}
+                    className={`p-4 rounded-full ${callState.cameraOn ? "bg-gray-700" : "bg-red-500"} text-white`}
+                    title={callState.cameraOn ? "Camera Off" : "Camera On"}
                   >
-                    {callState.cameraOn ? "Camera Off" : "Camera On"}
+                    {callState.cameraOn ? (
+                      <IconVideo size={20} />
+                    ) : (
+                      <IconVideoOff size={20} />
+                    )}
                   </button>
                 )}
+
+                {typeof navigator !== "undefined" &&
+                  "getDisplayMedia" in navigator.mediaDevices && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        callState.isScreenSharing
+                          ? calls.stopScreenShare()
+                          : calls.startScreenShare();
+                      }}
+                      className={`p-4 rounded-full ${callState.isScreenSharing ? "bg-blue-600" : "bg-gray-700"} text-white`}
+                      title={
+                        callState.isScreenSharing
+                          ? "Stop Sharing"
+                          : "Share Screen"
+                      }
+                    >
+                      {callState.isScreenSharing ? (
+                        <IconScreenShareOff size={20} />
+                      ) : (
+                        <IconScreenShare size={20} />
+                      )}
+                    </button>
+                  )}
+
                 <button
                   onClick={() => calls.endCall("hangup")}
-                  className="px-6 py-3 rounded-full bg-red-600 text-white"
+                  className="p-4 rounded-full bg-red-600 text-white"
+                  title="End Call"
                 >
-                  End Call
+                  <IconPhoneOff size={20} />
                 </button>
               </div>
             </div>

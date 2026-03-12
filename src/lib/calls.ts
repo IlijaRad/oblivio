@@ -12,6 +12,7 @@ export interface CallState {
     localType: string;
     remoteType: string;
   };
+  isScreenSharing: boolean;
 }
 
 export interface RawIceItem {
@@ -107,6 +108,8 @@ class CallsManager {
     sdpMid?: string | null;
     sdpMLineIndex?: number | null;
   }> = [];
+  private screenStream: MediaStream | null = null;
+  private isScreenSharing: boolean = false;
 
   constructor() {
     this.setupEventListeners();
@@ -287,6 +290,7 @@ class CallsManager {
       withUserId: this.withUserId,
       ice: this.pc?.iceConnectionState,
       gathering: this.pc?.iceGatheringState,
+      isScreenSharing: this.isScreenSharing,
     };
     if (this.pc) {
       this.pc.getStats().then((stats) => {
@@ -337,6 +341,10 @@ class CallsManager {
       this.localStream
         .getTracks()
         .forEach((t) => this.pc!.addTrack(t, this.localStream!));
+
+      if (!video) {
+        this.pc.addTrack(this.createBlackVideoTrack(), this.localStream);
+      }
 
       this.pc.onicecandidate = (e) => {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
@@ -399,6 +407,10 @@ class CallsManager {
       this.localStream
         .getTracks()
         .forEach((t) => this.pc!.addTrack(t, this.localStream!));
+
+      if (!this.hasVideo) {
+        this.pc.addTrack(this.createBlackVideoTrack(), this.localStream);
+      }
 
       this.pc.onicecandidate = (e) => {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
@@ -556,6 +568,71 @@ class CallsManager {
     window.dispatchEvent(new Event("calls:stopRinging"));
   }
 
+  async startScreenShare(): Promise<void> {
+    if (!this.pc || !this.localStream) return;
+
+    try {
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
+
+      const screenTrack = this.screenStream.getVideoTracks()[0];
+
+      const cameraTrack = this.localStream.getVideoTracks()[0];
+      if (cameraTrack) cameraTrack.enabled = false;
+
+      const sender = this.pc
+        .getSenders()
+        .find((s) => s.track?.kind === "video");
+
+      if (sender) {
+        await sender.replaceTrack(screenTrack);
+      }
+
+      if (this.localVideo && this.screenStream) {
+        this.localVideo.srcObject = this.screenStream;
+      }
+
+      this.isScreenSharing = true;
+      this.emitState();
+
+      screenTrack.onended = () => {
+        this.stopScreenShare();
+      };
+    } catch (error) {
+      console.error("Screen share failed:", error);
+    }
+  }
+
+  async stopScreenShare(): Promise<void> {
+    if (!this.pc || !this.isScreenSharing) return;
+
+    this.isScreenSharing = false;
+
+    this.screenStream?.getTracks().forEach((t) => t.stop());
+    this.screenStream = null;
+
+    const cameraTrack = this.localStream?.getVideoTracks()[0] ?? null;
+
+    const sender = this.pc.getSenders().find((s) => s.track?.kind === "video");
+
+    if (this.hasVideo && cameraTrack && sender) {
+      cameraTrack.enabled = true;
+      await sender.replaceTrack(cameraTrack);
+
+      if (this.localVideo) {
+        this.localVideo.srcObject = this.localStream;
+      }
+    } else if (sender) {
+      const blackTrack = this.createBlackVideoTrack();
+      await sender.replaceTrack(blackTrack);
+      if (this.localVideo) this.localVideo.srcObject = null;
+    }
+
+    this.emitState();
+  }
+
   private cleanup() {
     if (this.iceBatchTimeout) {
       clearTimeout(this.iceBatchTimeout);
@@ -567,6 +644,9 @@ class CallsManager {
     this.remoteStream = null;
     this.pc?.close();
     this.pc = null;
+    this.screenStream?.getTracks().forEach((t) => t.stop());
+    this.screenStream = null;
+    this.isScreenSharing = false;
     if (this.remoteVideo) this.remoteVideo.srcObject = null;
     if (this.localVideo) this.localVideo.srcObject = null;
     this.callId = null;
@@ -580,12 +660,17 @@ class CallsManager {
     this.remoteVideo = remote;
     this.localVideo = local || null;
 
-    if (this.localStream && this.localVideo) {
-      this.localVideo.srcObject = this.localStream;
+    if (this.remoteVideo && this.remoteStream) {
+      this.remoteVideo.srcObject = this.remoteStream;
     }
 
-    if (this.remoteStream && this.remoteVideo) {
-      this.remoteVideo.srcObject = this.remoteStream;
+    if (this.localVideo) {
+      const localSource = this.isScreenSharing
+        ? this.screenStream
+        : this.localStream;
+      if (localSource && this.localVideo.srcObject !== localSource) {
+        this.localVideo.srcObject = localSource;
+      }
     }
   }
 
@@ -632,6 +717,16 @@ class CallsManager {
     } catch (error) {
       console.error("Failed to set output device:", error);
     }
+  }
+
+  private createBlackVideoTrack(): MediaStreamTrack {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas.captureStream(0).getVideoTracks()[0];
   }
 }
 

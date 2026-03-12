@@ -226,12 +226,14 @@ export default function Chat({
 
   async function uploadToS3(file: File): Promise<{ key: string } | null> {
     try {
-      const normalizedType = (file.type || "application/octet-stream").split(
-        ";",
-      )[0];
+      let contentType = file.type || "application/octet-stream";
+      if (!contentType.startsWith("audio/")) {
+        contentType = contentType.split(";")[0];
+      }
+
       const data = await getPresignedUploadUrl({
         folder: "uploads",
-        contentType: normalizedType,
+        contentType,
         contentLength: file.size,
       });
       if (data.error || !data.url) {
@@ -240,7 +242,7 @@ export default function Chat({
       }
       const res = await fetch(data.url, {
         method: "PUT",
-        headers: { "Content-Type": normalizedType },
+        headers: { "Content-Type": contentType },
         body: file,
       });
       if (!res.ok) {
@@ -303,50 +305,58 @@ export default function Chat({
     }
     setRecordingTime(0);
     stopRequestedRef.current = false;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
       if (stopRequestedRef.current) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
 
+      const preferredTypes = [
+        "audio/webm;codecs=opus",
+        "audio/mp4",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+      ];
+
       const mimeType =
-        [
-          "audio/mp4",
-          "audio/webm;codecs=opus",
-          "audio/webm",
-          "audio/ogg;codecs=opus",
-        ].find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+        preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) ??
+        null;
 
-      const mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+      if (!mimeType) {
+        toast.error("Your browser does not support audio recording");
+        return;
+      }
 
-      mimeTypeRef.current = mediaRecorder.mimeType;
-
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
+      mimeTypeRef.current = mimeType; // keep full mimeType
       audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e: BlobEvent) => {
+      mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = async () => {
-        const actualMime = mediaRecorder.mimeType.split(";")[0].trim();
+        const fullMimeType = mediaRecorder.mimeType;
+
         const audioBlob = new Blob(audioChunksRef.current, {
-          type: actualMime,
+          type: fullMimeType,
         });
 
-        if (audioBlob.size < 1000) return;
+        if (audioBlob.size < 1000) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
 
-        const ext = actualMime.includes("mp4")
-          ? "m4a"
-          : actualMime.includes("ogg")
-            ? "ogg"
-            : "webm";
+        let ext = "webm";
+        if (fullMimeType.includes("mp4")) ext = "m4a";
+        else if (fullMimeType.includes("ogg")) ext = "ogg";
 
         const file = new File([audioBlob], `voice-${Date.now()}.${ext}`, {
-          type: actualMime,
+          type: fullMimeType,
         });
 
         const upload = await uploadToS3(file);
@@ -358,32 +368,26 @@ export default function Chat({
             attachmentName: file.name,
             attachmentSize: file.size,
           });
-          if (!("error" in result))
+
+          if (!("error" in result)) {
             setMessages((prev) => [...prev, result as Message]);
+          }
         }
+
         stream.getTracks().forEach((t) => t.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
 
-      if (stopRequestedRef.current) {
-        mediaRecorder.stop();
-        setIsRecording(false);
-        setRecordingTime(0);
-        return;
-      }
-
-      timerRef.current = setInterval(
-        () => setRecordingTime((prev) => prev + 1),
-        1000,
-      );
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
     } catch (err) {
       console.error(err);
-      toast.error("Microphone access denied");
+      toast.error("Microphone access denied or not available");
     }
   };
-
   const stopRecording = () => {
     stopRequestedRef.current = true;
     if (timerRef.current) {

@@ -40,6 +40,7 @@ export function CallProvider({
     cameraOn: false,
     callId: null,
     withUserId: null,
+    isScreenSharing: false,
   });
   const [incoming, setIncoming] = useState<IncomingOffer | null>(null);
   const remoteRef = useRef<HTMLVideoElement | null>(null);
@@ -80,13 +81,6 @@ export function CallProvider({
       window.removeEventListener("calls:stopRinging", onStopRinging);
     };
   }, []);
-
-  useEffect(() => {
-    if (!callState.active) return;
-    const r = remoteRef.current;
-    const l = localRef.current || undefined;
-    if (r) calls.attachElements(r, l);
-  }, [callState.active]);
 
   return (
     <CallContext.Provider
