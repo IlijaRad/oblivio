@@ -201,11 +201,11 @@ export function CallOverlay({
                 }}
                 autoPlay
                 playsInline
-                className={
+                className={`transition-opacity duration-300 ${
                   callFullscreen
                     ? "absolute inset-0 w-full h-full object-cover"
                     : "absolute inset-0 w-full h-full object-cover rounded-xl"
-                }
+                } ${callState.hasRemoteVideo ? "opacity-100" : "opacity-0"}`}
               />
               {callFullscreen && (
                 <video

@@ -13,6 +13,7 @@ export interface CallState {
     remoteType: string;
   };
   isScreenSharing: boolean;
+  hasRemoteVideo: boolean;
 }
 
 export interface RawIceItem {
@@ -110,6 +111,7 @@ class CallsManager {
   }> = [];
   private screenStream: MediaStream | null = null;
   private isScreenSharing: boolean = false;
+  private cameraWasEnabled: boolean = false;
 
   constructor() {
     this.setupEventListeners();
@@ -153,6 +155,30 @@ class CallsManager {
     window.addEventListener("calls:end", (() => {
       this.handleCallEnd();
     }) as EventListener);
+    window.addEventListener("calls:renegotiate", ((e: Event) => {
+      this.handleRenegotiateOffer(e as CustomEvent<CallOfferPayload>);
+    }) as EventListener);
+  }
+
+  private async handleRenegotiateOffer(event: CustomEvent<CallOfferPayload>) {
+    if (!this.pc) return;
+    try {
+      await this.pc.setRemoteDescription(
+        new RTCSessionDescription({ type: "offer", sdp: event.detail.sdp.sdp }),
+      );
+      const answer = await this.pc.createAnswer();
+      await this.pc.setLocalDescription(answer);
+      await this.clientApiClient("/calls/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          callId: this.callId,
+          toUserId: this.withUserId,
+          sdp: { type: answer.type, sdp: answer.sdp },
+        }),
+      });
+    } catch (error) {
+      console.error("Handle renegotiate offer failed:", error);
+    }
   }
 
   private async handleIceBatch(event: CustomEvent<CallIceBatchPayload>) {
@@ -213,6 +239,15 @@ class CallsManager {
       "call-cancel": "calls:end",
     };
     if (payload.type === "call-offer") {
+      if (this.pc && this.pc.signalingState !== "stable") return;
+
+      if (this.callId && payload.callId === this.callId) {
+        window.dispatchEvent(
+          new CustomEvent("calls:renegotiate", { detail: payload }),
+        );
+        return;
+      }
+
       this.callId = payload.callId;
       this.withUserId = payload.fromUserId;
       this.incomingHandler?.({
@@ -291,6 +326,10 @@ class CallsManager {
       ice: this.pc?.iceConnectionState,
       gathering: this.pc?.iceGatheringState,
       isScreenSharing: this.isScreenSharing,
+      hasRemoteVideo:
+        this.remoteStream
+          ?.getVideoTracks()
+          .some((t) => t.readyState === "live" && !t.muted) ?? false,
     };
     if (this.pc) {
       this.pc.getStats().then((stats) => {
@@ -342,10 +381,6 @@ class CallsManager {
         .getTracks()
         .forEach((t) => this.pc!.addTrack(t, this.localStream!));
 
-      if (!video) {
-        this.pc.addTrack(this.createBlackVideoTrack(), this.localStream);
-      }
-
       this.pc.onicecandidate = (e) => {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
       };
@@ -355,6 +390,13 @@ class CallsManager {
           if (this.remoteVideo) {
             this.remoteVideo.srcObject = e.streams[0];
           }
+
+          // Listen for track mute/unmute/end to update state
+          e.track.onmute = () => this.emitState();
+          e.track.onunmute = () => this.emitState();
+          e.track.onended = () => this.emitState();
+
+          this.emitState();
         }
       };
 
@@ -408,10 +450,6 @@ class CallsManager {
         .getTracks()
         .forEach((t) => this.pc!.addTrack(t, this.localStream!));
 
-      if (!this.hasVideo) {
-        this.pc.addTrack(this.createBlackVideoTrack(), this.localStream);
-      }
-
       this.pc.onicecandidate = (e) => {
         if (e.candidate) this.queueIceCandidate(e.candidate.toJSON());
       };
@@ -422,6 +460,13 @@ class CallsManager {
           if (this.remoteVideo) {
             this.remoteVideo.srcObject = e.streams[0];
           }
+
+          // Listen for track mute/unmute/end to update state
+          e.track.onmute = () => this.emitState();
+          e.track.onunmute = () => this.emitState();
+          e.track.onended = () => this.emitState();
+
+          this.emitState();
         }
       };
 
@@ -580,17 +625,25 @@ class CallsManager {
       const screenTrack = this.screenStream.getVideoTracks()[0];
 
       const cameraTrack = this.localStream.getVideoTracks()[0];
-      if (cameraTrack) cameraTrack.enabled = false;
+      if (cameraTrack) {
+        this.cameraWasEnabled = cameraTrack.enabled;
+        cameraTrack.enabled = false;
+      }
 
       const sender = this.pc
         .getSenders()
         .find((s) => s.track?.kind === "video");
 
       if (sender) {
+        // Video call — just replace, no renegotiation needed
         await sender.replaceTrack(screenTrack);
+      } else {
+        // Audio call — add new track, renegotiate
+        this.pc.addTrack(screenTrack, this.localStream);
+        await this.renegotiate();
       }
 
-      if (this.localVideo && this.screenStream) {
+      if (this.localVideo) {
         this.localVideo.srcObject = this.screenStream;
       }
 
@@ -609,28 +662,42 @@ class CallsManager {
     if (!this.pc || !this.isScreenSharing) return;
 
     this.isScreenSharing = false;
-
     this.screenStream?.getTracks().forEach((t) => t.stop());
     this.screenStream = null;
 
+    const sender = this.pc.getSenders().find((s) => s.track?.kind === "video");
     const cameraTrack = this.localStream?.getVideoTracks()[0] ?? null;
 
-    const sender = this.pc.getSenders().find((s) => s.track?.kind === "video");
-
     if (this.hasVideo && cameraTrack && sender) {
-      cameraTrack.enabled = true;
+      cameraTrack.enabled = this.cameraWasEnabled;
       await sender.replaceTrack(cameraTrack);
-
-      if (this.localVideo) {
-        this.localVideo.srcObject = this.localStream;
-      }
+      if (this.localVideo) this.localVideo.srcObject = this.localStream;
     } else if (sender) {
-      const blackTrack = this.createBlackVideoTrack();
-      await sender.replaceTrack(blackTrack);
+      this.pc.removeTrack(sender);
+      await this.renegotiate();
       if (this.localVideo) this.localVideo.srcObject = null;
     }
 
     this.emitState();
+  }
+
+  private async renegotiate(): Promise<void> {
+    if (!this.pc || !this.callId || !this.withUserId) return;
+    try {
+      const offer = await this.pc.createOffer();
+      await this.pc.setLocalDescription(offer);
+      await this.clientApiClient("/calls/offer", {
+        method: "POST",
+        body: JSON.stringify({
+          callId: this.callId,
+          toUserId: this.withUserId,
+          sdp: offer,
+          hasVideo: this.hasVideo,
+        }),
+      });
+    } catch (error) {
+      console.error("Renegotiation failed:", error);
+    }
   }
 
   private cleanup() {
@@ -652,6 +719,7 @@ class CallsManager {
     this.callId = null;
     this.withUserId = null;
     this.wasConnected = false;
+    this.cameraWasEnabled = false;
     this.pendingCandidates = [];
     this.emitState();
   }

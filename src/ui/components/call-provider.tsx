@@ -41,6 +41,7 @@ export function CallProvider({
     callId: null,
     withUserId: null,
     isScreenSharing: false,
+    hasRemoteVideo: false,
   });
   const [incoming, setIncoming] = useState<IncomingOffer | null>(null);
   const remoteRef = useRef<HTMLVideoElement | null>(null);
