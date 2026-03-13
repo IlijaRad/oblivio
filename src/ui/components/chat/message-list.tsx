@@ -7,6 +7,7 @@ import {
   User,
 } from "@/lib/definitions";
 import Image from "next/image";
+import { useState } from "react";
 import { twMerge } from "tailwind-merge";
 import IconCamera from "../../icons/icon-camera";
 import IconPhone from "../../icons/icon-phone";
@@ -42,6 +43,17 @@ interface MessageListProps {
   myAvatarUrl: string | null;
   apiBase?: string;
   styles: ChatStyles;
+}
+
+function Skeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={twMerge(
+        "animate-pulse rounded-lg bg-black/10 dark:bg-white/10",
+        className,
+      )}
+    />
+  );
 }
 
 export function MessageList({
@@ -117,10 +129,13 @@ export function MessageList({
 }
 
 function Avatar({ src, fallback }: { src: string | null; fallback: string }) {
+  const [errored, setErrored] = useState(false);
+
   return (
     <div className="size-11 rounded-md bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0 relative overflow-hidden border border-black/5 dark:border-white/5 shadow-sm">
-      {src ? (
+      {src && !errored ? (
         <Image
+          key={src}
           src={src}
           fill
           alt="avatar"
@@ -131,6 +146,7 @@ function Avatar({ src, fallback }: { src: string | null; fallback: string }) {
             WebkitTouchCallout: "none",
           }}
           unoptimized
+          onError={() => setErrored(true)}
         />
       ) : (
         <span
@@ -190,9 +206,13 @@ function MessageContent({
   apiBase?: string;
   className: string;
 }) {
-  const viewUrl = `${apiBase}/uploads/view?key=${encodeURIComponent(
-    message.attachment?.key || "",
-  )}`;
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageErrored, setImageErrored] = useState(false);
+
+  const viewUrl =
+    apiBase && message.attachment?.key
+      ? `${apiBase}/uploads/view?key=${encodeURIComponent(message.attachment.key)}`
+      : null;
 
   const size = message.attachment?.size || 0;
 
@@ -204,18 +224,36 @@ function MessageContent({
   }
 
   if (isImageAttachment(message.attachment)) {
+    if (!viewUrl) {
+      return <Skeleton className="size-65" />;
+    }
     return (
       <div className="space-y-2">
         <div className="relative overflow-hidden rounded-xl max-w-65">
-          <Image
-            src={viewUrl}
-            alt="Image attachment"
-            width={260}
-            height={260}
-            className="object-cover"
-            unoptimized
-            onLoadingComplete={() => window.dispatchEvent(new Event("resize"))}
-          />
+          {!imageLoaded && !imageErrored && <Skeleton className="size-65" />}
+          {!imageErrored && (
+            <Image
+              src={viewUrl}
+              alt="Image attachment"
+              width={260}
+              height={260}
+              className={twMerge(
+                "object-cover transition-opacity duration-200",
+                imageLoaded ? "opacity-100" : "opacity-0 absolute inset-0",
+              )}
+              unoptimized
+              onLoadingComplete={() => {
+                setImageLoaded(true);
+                window.dispatchEvent(new Event("resize"));
+              }}
+              onError={() => setImageErrored(true)}
+            />
+          )}
+          {imageErrored && (
+            <div className="size-65 flex items-center justify-center rounded-xl bg-black/10 dark:bg-white/10 text-xs opacity-50">
+              Failed to load
+            </div>
+          )}
         </div>
         {message.body && (
           <p className="text-[15px] leading-relaxed break-all">
@@ -227,6 +265,9 @@ function MessageContent({
   }
 
   if (message.attachment?.type === "video") {
+    if (!viewUrl) {
+      return <Skeleton className="w-65 h-45" />;
+    }
     return (
       <div className="space-y-2">
         <div className="relative overflow-hidden rounded-xl max-w-65">
@@ -248,6 +289,9 @@ function MessageContent({
   }
 
   if (message.attachment?.type === "audio") {
+    if (!viewUrl) {
+      return <Skeleton className="w-55 h-12" />;
+    }
     return (
       <div className={twMerge("my-2", className)}>
         <AudioPlayer src={viewUrl} className={className} />
@@ -261,6 +305,9 @@ function MessageContent({
   }
 
   if (message.attachment?.type === "file") {
+    if (!viewUrl) {
+      return <Skeleton className="w-45 h-10" />;
+    }
     return (
       <div className={twMerge("my-2 flex gap-x-2 items-center", className)}>
         <svg

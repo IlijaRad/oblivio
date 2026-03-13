@@ -40,9 +40,10 @@ export default function ChatHeader({
   const [burnOpen, setBurnOpen] = useState(false);
   const [unfriendOpen, setUnfriendOpen] = useState(false);
 
-  const contactAvatar = contact.avatarKey
-    ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
-    : null;
+  const contactAvatar =
+    apiBase && contact.avatarKey
+      ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
+      : null;
 
   return (
     <>
@@ -59,6 +60,7 @@ export default function ChatHeader({
           <div className="size-10 md:size-11 rounded-md bg-gray-100/80 dark:bg-zinc-800/80 flex items-center justify-center shadow-sm overflow-hidden relative shrink-0">
             {contactAvatar ? (
               <Image
+                key={contactAvatar}
                 src={contactAvatar}
                 alt={contact.username}
                 fill
