@@ -1,20 +1,24 @@
 import { getContacts, type Contact } from "@/lib/actions/friends/get-contacts";
 import { getFriends } from "@/lib/actions/friends/get-friends";
-import { SidebarContact } from "@/lib/definitions";
+import { getGroups } from "@/lib/actions/groups/actions";
+import { Group, SidebarContact } from "@/lib/definitions";
 import { redirect } from "next/navigation";
 import { SidebarClient } from "./sidebar-client";
 
 export async function Sidebar() {
-  const [friendsList, contactsList] = await Promise.all([
+  const [friendsList, contactsList, groupsList] = await Promise.all([
     getFriends(),
     getContacts(),
+    getGroups(),
   ]);
 
   if (friendsList && "unauthorized" in friendsList) {
     redirect("/api/auth/logout");
   }
-
   if (contactsList && "unauthorized" in contactsList) {
+    redirect("/api/auth/logout");
+  }
+  if (groupsList && "unauthorized" in groupsList) {
     redirect("/api/auth/logout");
   }
 
@@ -25,12 +29,18 @@ export async function Sidebar() {
         .filter((c: Contact) => c.avatarKey)
         .map((c: Contact) => [c.id, c.avatarKey as string]),
     );
-
     initialFriends = friendsList.map((friend) => ({
       ...friend,
       avatarKey: avatarMap.get(friend.id) || null,
     }));
   }
 
-  return <SidebarClient initialFriends={initialFriends} />;
+  const initialGroups: Group[] = Array.isArray(groupsList) ? groupsList : [];
+
+  return (
+    <SidebarClient
+      initialFriends={initialFriends}
+      initialGroups={initialGroups}
+    />
+  );
 }

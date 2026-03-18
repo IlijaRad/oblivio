@@ -35,7 +35,7 @@ export default function AudioPlayer({
   className,
 }: {
   src: string;
-  className: string;
+  className?: string;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(false);

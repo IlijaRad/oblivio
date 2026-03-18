@@ -13,6 +13,7 @@ export async function sendMessage(
     attachmentType: "image" | "video" | "audio" | "file";
     attachmentName?: string;
     attachmentSize?: number;
+    attachmentDuration?: number;
   },
 ) {
   const headers = await getDefaultHeaders();

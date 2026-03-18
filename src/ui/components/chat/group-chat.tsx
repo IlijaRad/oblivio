@@ -1,39 +1,20 @@
 "use client";
 
 import { useWebSocket } from "@/context/WebSocketProvider";
-import { deleteContact } from "@/lib/actions/friends/remove-friend";
-import { burnChat } from "@/lib/actions/thread/burn";
-import { getChat } from "@/lib/actions/thread/get-chat";
-import { markAsSeen } from "@/lib/actions/thread/seen";
-import { sendMessage } from "@/lib/actions/thread/send-message";
+import { getGroupChat, sendGroupMessage } from "@/lib/actions/groups/actions";
 import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
-import { MissedCallEvent } from "@/lib/calls";
 import {
-  GetChatResult,
-  Message,
-  SelectedContact,
+  GroupDetail,
+  GroupMessage,
+  SidebarContact,
   User,
 } from "@/lib/definitions";
-import { getOrCreateDeviceId } from "@/lib/device";
-import {
-  isCallEvent,
-  isFriendEvent,
-  isMessageEvent,
-  isSeenEvent,
-} from "@/lib/websocket";
+import ChatInput from "@/ui/components/chat/chat-input";
 import { useTheme } from "next-themes";
-import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import ChatHeader from "./chat-header";
-import ChatInput from "./chat-input";
-import EmptyState from "./empy-state";
-import {
-  ChatItem,
-  isMissedCallMessage,
-  MessageList,
-  MissedCallMessage,
-} from "./message-list";
+import GroupChatHeader from "./group-chat-header";
+import { GroupMessageList } from "./group-message-list";
 
 type Theme = "default" | "modern";
 
@@ -64,26 +45,32 @@ const themeStyles = {
 
 const THEME_STORAGE_KEY = "chat-theme-preference";
 
-export default function Chat({
-  contact,
+export default function GroupChat({
+  initialGroup,
   currentUser,
+  contacts,
+  onGroupRenamed,
 }: {
-  contact: SelectedContact;
+  initialGroup: GroupDetail;
   currentUser: User;
+  contacts: SidebarContact[];
+  onGroupRenamed?: (groupId: string, name: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const stopRequestedRef = useRef(false);
+  const mimeTypeRef = useRef<string>("");
+  const recordingStartTimeRef = useRef<number>(0);
 
-  const { push } = useRouter();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const { addListener } = useWebSocket();
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
+  const [group, setGroup] = useState(initialGroup);
 
-  const [messages, setMessages] = useState<ChatItem[]>([]);
+  const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -91,15 +78,6 @@ export default function Chat({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [theme, setTheme] = useState<Theme>("default");
-  const recordingStartTimeRef = useRef<number>(0);
-
-  const contactAvatar = contact.avatarKey
-    ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
-    : null;
-  const myAvatarUrl = currentUser.avatarKey
-    ? `${apiBase}/uploads/view?key=${encodeURIComponent(currentUser.avatarKey)}`
-    : null;
-  const mimeTypeRef = useRef<string>("");
 
   useEffect(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
@@ -107,7 +85,7 @@ export default function Chat({
     startTransition(() => {
       if (saved && validThemes.includes(saved)) setTheme(saved);
     });
-  }, [currentUser.id, contact.id]);
+  }, [group.id]);
 
   const handleThemeChange = (t: Theme) => {
     setTheme(t);
@@ -115,71 +93,33 @@ export default function Chat({
   };
 
   useEffect(() => {
-    async function loadThread() {
-      const response = (await getChat(contact.id)) as GetChatResult;
+    async function loadMessages() {
+      const response = await getGroupChat(group.id);
       if (response && "items" in response) {
         setMessages(response.items);
-        handleMarkAsSeen(response.items);
         setTimeout(() => scrollToBottom(), 100);
       } else if (response && "errors" in response) {
         toast.error("Failed to load messages");
       }
     }
-    loadThread();
-  }, [contact.id]);
+    loadMessages();
+  }, [group.id]);
 
+  // Listen for real-time group messages
   useEffect(() => {
     const remove = addListener((payload) => {
-      if (isSeenEvent(payload)) {
-        if (String(payload.with) !== contact.id) return;
-        setMessages((prev) =>
-          prev.map((m) => {
-            if (isMissedCallMessage(m)) return m;
-            return m.fromUserId === currentUser.id &&
-              m.toUserId === String(payload.with) &&
-              m.createdAt <= payload.upTo
-              ? { ...m, readAt: new Date(payload.upTo).toISOString() }
-              : m;
-          }),
-        );
-        return;
-      }
-      if (isFriendEvent(payload) || isCallEvent(payload)) return;
-      if (isMessageEvent(payload)) {
-        const isForThisChat =
-          (payload.fromUserId === currentUser.id &&
-            payload.toUserId === contact.id) ||
-          (payload.fromUserId === contact.id &&
-            payload.toUserId === currentUser.id);
-        if (!isForThisChat) return;
-        if (payload.fromUserId === contact.id)
-          markAsSeen(contact.id, payload.createdAt);
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === payload.id)) return prev;
-          return [...prev, payload];
-        });
-      }
+      // Group messages come with groupId field
+      if (!("groupId" in payload)) return;
+      const msg = payload as unknown as GroupMessage;
+      if (msg.groupId !== group.id) return;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      setTimeout(() => scrollToBottom(), 50);
     });
     return remove;
-  }, [contact.id, currentUser.id, addListener]);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<MissedCallEvent>).detail;
-      if (detail.withUserId !== contact.id) return;
-      const missedMsg: MissedCallMessage = {
-        id: `missed-${detail.callId}`,
-        type: "missed-call",
-        hasVideo: detail.hasVideo,
-        fromUserId: currentUser.id,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, missedMsg]);
-      setTimeout(() => scrollToBottom(), 50);
-    };
-    window.addEventListener("calls:missed", handler);
-    return () => window.removeEventListener("calls:missed", handler);
-  }, [contact.id, currentUser.id]);
+  }, [group.id, addListener]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -200,24 +140,15 @@ export default function Chat({
     if (!inputValue.trim() || isSending) return;
     setIsSending(true);
     try {
-      const deviceId = await getOrCreateDeviceId();
-      const result = await sendMessage(contact.id, inputValue, deviceId);
+      const result = await sendGroupMessage(group.id, inputValue);
       if ("error" in result) {
         toast.error(result.error);
       } else {
         setInputValue("");
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: result.id,
-            fromUserId: result.fromUserId,
-            toUserId: result.toUserId,
-            body: result.body,
-            createdAt: result.createdAt,
-            readAt: result.readAt ?? null,
-            attachment: result.attachment ?? null,
-          },
-        ]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === result.id)) return prev;
+          return [...prev, result];
+        });
         setTimeout(() => scrollToBottom(), 50);
       }
     } finally {
@@ -231,7 +162,6 @@ export default function Chat({
       if (!contentType.startsWith("audio/")) {
         contentType = contentType.split(";")[0];
       }
-
       const data = await getPresignedUploadUrl({
         folder: "uploads",
         contentType,
@@ -269,8 +199,7 @@ export default function Chat({
       else if (mime.startsWith("audio/")) attachmentType = "audio";
       const upload = await uploadToS3(file);
       if (!upload) return;
-      const deviceId = await getOrCreateDeviceId();
-      const result = await sendMessage(contact.id, "", deviceId, {
+      const result = await sendGroupMessage(group.id, "", {
         attachmentKey: upload.key,
         attachmentType,
         attachmentName: file.name,
@@ -279,18 +208,10 @@ export default function Chat({
       if ("error" in result) {
         toast.error(result.error);
       } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: result.id,
-            fromUserId: result.fromUserId,
-            toUserId: result.toUserId,
-            body: result.body,
-            createdAt: result.createdAt,
-            readAt: result.readAt ?? null,
-            attachment: result.attachment ?? null,
-          },
-        ]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === result.id)) return prev;
+          return [...prev, result];
+        });
         setTimeout(() => scrollToBottom(), 50);
       }
     } finally {
@@ -309,7 +230,6 @@ export default function Chat({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
       if (stopRequestedRef.current) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -323,7 +243,6 @@ export default function Chat({
         "audio/webm",
         "audio/ogg;codecs=opus",
       ];
-
       const mimeType =
         preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) ??
         null;
@@ -347,45 +266,37 @@ export default function Chat({
         const audioBlob = new Blob(audioChunksRef.current, {
           type: fullMimeType,
         });
-
         if (audioBlob.size < 1000) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
 
-        const durationSeconds =
-          (Date.now() - recordingStartTimeRef.current) / 1000;
-
         let ext = "webm";
         if (fullMimeType.includes("mp4")) ext = "m4a";
         else if (fullMimeType.includes("ogg")) ext = "ogg";
-
         const file = new File([audioBlob], `voice-${Date.now()}.${ext}`, {
           type: fullMimeType,
         });
-
         const upload = await uploadToS3(file);
         if (upload) {
-          const deviceId = await getOrCreateDeviceId();
-          const result = await sendMessage(contact.id, "", deviceId, {
+          const result = await sendGroupMessage(group.id, "", {
             attachmentKey: upload.key,
             attachmentType: "audio",
             attachmentName: file.name,
             attachmentSize: file.size,
-            attachmentDuration: Math.round(durationSeconds),
           });
-
           if (!("error" in result)) {
-            setMessages((prev) => [...prev, result as Message]);
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === result.id)) return prev;
+              return [...prev, result];
+            });
           }
         }
-
         stream.getTracks().forEach((t) => t.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
-
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
@@ -394,6 +305,7 @@ export default function Chat({
       toast.error("Microphone access denied or not available");
     }
   };
+
   const stopRecording = () => {
     stopRequestedRef.current = true;
     if (timerRef.current) {
@@ -407,29 +319,6 @@ export default function Chat({
     }
   };
 
-  const handleMarkAsSeen = async (msgs: ChatItem[]) => {
-    const real = msgs.filter((m): m is Message => !isMissedCallMessage(m));
-    if (!real.length) return;
-    const last = [...real].reverse().find((m) => m.fromUserId === contact.id);
-    if (last) await markAsSeen(contact.id, new Date(last.createdAt).getTime());
-  };
-
-  const handleBurnChat = async () => {
-    const res = await burnChat(contact.id);
-    if (res?.success) {
-      toast.success("Chat burned");
-      push("/");
-    }
-  };
-
-  const handleDeleteContact = async () => {
-    const res = await deleteContact(contact.id);
-    if (res.success) {
-      toast.success("Contact removed");
-      push("/");
-    } else toast.error(res.error || "Failed to remove contact");
-  };
-
   const styles = themeStyles[theme];
   const isEmpty = messages.length === 0;
 
@@ -438,15 +327,16 @@ export default function Chat({
       <div
         className={`size-full relative rounded-md flex flex-col ${styles.chatBg}`}
       >
-        <ChatHeader
-          contact={contact}
+        <GroupChatHeader
+          contacts={contacts}
+          group={group}
           apiBase={apiBase}
           headerText={styles.headerText}
           theme={theme}
           onThemeChange={handleThemeChange}
-          onBurnChat={handleBurnChat}
-          onDeleteContact={handleDeleteContact}
-          isEmpty={isEmpty}
+          currentUserId={currentUser.id}
+          onGroupUpdated={setGroup}
+          onGroupRenamed={onGroupRenamed}
         />
 
         <div
@@ -454,17 +344,19 @@ export default function Chat({
           className="flex-1 overflow-y-auto py-5 px-4 scroll-smooth pt-20"
         >
           {!isEmpty ? (
-            <MessageList
+            <GroupMessageList
               messages={messages}
-              contact={contact}
+              group={group}
               currentUser={currentUser}
-              contactAvatar={contactAvatar}
-              myAvatarUrl={myAvatarUrl}
               apiBase={apiBase}
               styles={styles}
             />
           ) : (
-            <EmptyState contact={contact} styles={styles} />
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <p className="text-gray-400 text-sm">
+                No messages yet. Say hello!
+              </p>
+            </div>
           )}
         </div>
 

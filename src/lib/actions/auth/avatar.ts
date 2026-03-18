@@ -1,5 +1,6 @@
 "use server";
 
+import { apiClient, UnauthorizedError } from "@/lib/api-client";
 import { AUTHENTICATION_COOKIE_NAME } from "@/lib/definitions";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -61,5 +62,22 @@ export async function updateAvatarKey(key: string) {
   } catch (error) {
     console.error(error);
     return { error: "Failed to save profile picture" };
+  }
+}
+
+export async function updateGroupAvatarKey(groupId: string, avatarKey: string) {
+  try {
+    const response = await apiClient(`/groups/${groupId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ avatarKey }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return { error: data.message || "Failed to update group avatar" };
+    }
+    return await response.json();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return { unauthorized: true };
+    return { error: "Network error" };
   }
 }

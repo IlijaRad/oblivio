@@ -88,3 +88,43 @@ export interface SelectedContact {
   username: string;
   avatarKey: string | null;
 }
+
+export interface GroupMember {
+  userId: string;
+  username: string;
+  avatarKey?: string | null;
+  isAdmin?: boolean;
+  joinedAt?: number;
+}
+
+export interface Group {
+  id: string;
+  name: string | null;
+  avatarKey: string | null;
+  createdAt: number;
+  membersCount?: number;
+  members?: GroupMember[];
+  unreadCount?: number;
+}
+
+export interface GroupDetail extends Group {
+  members: GroupMember[];
+}
+
+export interface GroupMessageAttachment {
+  key: string;
+  type: "image" | "video" | "audio" | "file";
+  name?: string;
+  size?: number;
+  duration?: number;
+}
+
+export interface GroupMessage {
+  id: string;
+  groupId: string;
+  fromUserId: string;
+  body: string;
+  createdAt: string;
+  attachment?: GroupMessageAttachment | null;
+  reactions?: { emoji: string; userId: string }[];
+}

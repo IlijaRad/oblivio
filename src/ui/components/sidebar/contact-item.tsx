@@ -69,7 +69,7 @@ const ContactItem = ({
     );
   };
 
-  const containerClassName = `h-9.5 rounded-md border flex items-center px-1 transition-colors ${
+  const containerClassName = `h-9.5 rounded-md border flex items-center px-1 ${
     isActive
       ? "border-[#944C16] bg-zinc-50 dark:bg-white/5"
       : "border-[#989898] bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-white/5"
