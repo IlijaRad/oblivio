@@ -1,6 +1,6 @@
 import { Centrifuge, Subscription } from "centrifuge";
 import { calls, RawIceCandidate, RawIceItem } from "./calls";
-import { Message } from "./definitions";
+import { Group, Message } from "./definitions";
 
 const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
 
@@ -64,11 +64,17 @@ export type MessageEvent = Message & {
   type?: "message";
 };
 
+export type GroupCreatedEvent = {
+  type: "group-created";
+  group: Group;
+};
+
 export type WebSocketPayload =
   | MessageEvent
   | SeenEvent
   | FriendEvent
-  | CallEvent;
+  | CallEvent
+  | GroupCreatedEvent;
 
 export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
   const callTypes = [

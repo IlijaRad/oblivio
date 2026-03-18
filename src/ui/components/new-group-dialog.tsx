@@ -2,7 +2,7 @@
 
 import { getAvatarPresignedUrl } from "@/lib/actions/auth/avatar";
 import { createGroup } from "@/lib/actions/groups/actions";
-import { Group, SidebarContact } from "@/lib/definitions";
+import { SidebarContact } from "@/lib/definitions";
 import * as Dialog from "@radix-ui/react-dialog";
 import { IconSearch, IconUsers, IconX } from "@tabler/icons-react";
 import Image from "next/image";
@@ -14,13 +14,11 @@ import IconUpload from "../icons/icon-upload";
 interface NewGroupDialogProps {
   contacts: SidebarContact[];
   apiBase?: string;
-  onGroupCreated: (group: Group) => void;
 }
 
 export default function NewGroupDialog({
   contacts,
   apiBase,
-  onGroupCreated,
 }: NewGroupDialogProps) {
   const [open, setOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -232,7 +230,6 @@ export default function NewGroupDialog({
       }
       toast.success("Group created!");
       setOpen(false);
-      onGroupCreated(result);
       router.push(`/groups/${result.id}`);
     } catch (e) {
       console.error(e);

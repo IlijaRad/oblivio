@@ -56,6 +56,15 @@ export function SidebarClient({ initialFriends, initialGroups }: SidebarProps) {
       )
         return;
 
+      if ("type" in payload && payload.type === "group-created") {
+        const { group } = payload as unknown as { type: string; group: Group };
+        setGroups((prev) => {
+          if (prev.some((g) => g.id === group.id)) return prev; // avoid duplicate
+          return [group, ...prev];
+        });
+        return;
+      }
+
       // Group events
       if ("groupId" in payload) {
         const msg = payload as unknown as { type?: string; groupId: string };
@@ -256,11 +265,7 @@ export function SidebarClient({ initialFriends, initialGroups }: SidebarProps) {
 
         <div className="px-4 pb-6 flex flex-col min-h-0 gap-2">
           {!isSearching && (
-            <NewGroupDialog
-              contacts={friends}
-              apiBase={apiBase}
-              onGroupCreated={(group) => setGroups((prev) => [group, ...prev])}
-            />
+            <NewGroupDialog contacts={friends} apiBase={apiBase} />
           )}
 
           {isSearching ? (
