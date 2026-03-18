@@ -12,6 +12,7 @@ import { twMerge } from "tailwind-merge";
 import IconCamera from "../../icons/icon-camera";
 import IconPhone from "../../icons/icon-phone";
 import AudioPlayer from "../audio-player";
+import linkify from "./linkify";
 
 type ChatStyles = {
   sent: string;
@@ -257,7 +258,7 @@ function MessageContent({
         </div>
         {message.body && (
           <p className="text-[15px] leading-relaxed break-all">
-            {message.body}
+            {linkify(message.body)}
           </p>
         )}
       </div>
@@ -281,7 +282,7 @@ function MessageContent({
         </div>
         {message.body && (
           <p className="text-[15px] leading-relaxed break-all">
-            {message.body}
+            {linkify(message.body)}
           </p>
         )}
       </div>
@@ -297,7 +298,7 @@ function MessageContent({
         <AudioPlayer src={viewUrl} className={className} />
         {message.body && (
           <p className="mt-2 text-[15px] leading-relaxed break-all">
-            {message.body}
+            {linkify(message.body)}
           </p>
         )}
       </div>
@@ -349,6 +350,8 @@ function MessageContent({
   }
 
   return (
-    <p className="text-[15px] leading-relaxed break-all">{message.body}</p>
+    <p className="text-[15px] leading-relaxed break-all">
+      {linkify(message.body)}
+    </p>
   );
 }

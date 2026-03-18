@@ -3,6 +3,7 @@
 import { GroupDetail, GroupMessage, User } from "@/lib/definitions";
 import Image from "next/image";
 import AudioPlayer from "../audio-player";
+import linkify from "./linkify";
 
 interface GroupMessageListProps {
   messages: GroupMessage[];
@@ -101,7 +102,7 @@ export function GroupMessageList({
                     apiBase={apiBase}
                   />
                 ) : (
-                  msg.body
+                  <> {linkify(msg.body)}</>
                 )}
 
                 {/* Time + read status inside bubble (bottom right) */}
