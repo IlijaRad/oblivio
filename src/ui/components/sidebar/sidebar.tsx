@@ -1,3 +1,4 @@
+import { getUser } from "@/lib/actions/auth/get-user";
 import { getContacts, type Contact } from "@/lib/actions/friends/get-contacts";
 import { getFriends } from "@/lib/actions/friends/get-friends";
 import { getGroups } from "@/lib/actions/groups/actions";
@@ -6,11 +7,8 @@ import { redirect } from "next/navigation";
 import { SidebarClient } from "./sidebar-client";
 
 export async function Sidebar() {
-  const [friendsList, contactsList, groupsList] = await Promise.all([
-    getFriends(),
-    getContacts(),
-    getGroups(),
-  ]);
+  const [friendsList, contactsList, groupsList, currentUser] =
+    await Promise.all([getFriends(), getContacts(), getGroups(), getUser()]);
 
   if (friendsList && "unauthorized" in friendsList) {
     redirect("/api/auth/logout");
@@ -19,6 +17,10 @@ export async function Sidebar() {
     redirect("/api/auth/logout");
   }
   if (groupsList && "unauthorized" in groupsList) {
+    redirect("/api/auth/logout");
+  }
+
+  if (currentUser && "unauthorized" in currentUser) {
     redirect("/api/auth/logout");
   }
 
@@ -41,6 +43,7 @@ export async function Sidebar() {
     <SidebarClient
       initialFriends={initialFriends}
       initialGroups={initialGroups}
+      currentUserId={"id" in currentUser ? currentUser.id : ""}
     />
   );
 }

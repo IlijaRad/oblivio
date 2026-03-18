@@ -7,6 +7,10 @@ import { Group, SidebarContact } from "@/lib/definitions";
 import {
   isCallEvent,
   isFriendEvent,
+  isGroupCreatedEvent,
+  isGroupDeletedEvent,
+  isGroupMemberRemovedEvent,
+  isGroupUpdatedEvent,
   isMessageEvent,
   isSeenEvent,
 } from "@/lib/websocket";
@@ -23,9 +27,14 @@ import ContactItem from "./contact-item";
 interface SidebarProps {
   initialFriends: SidebarContact[];
   initialGroups: Group[];
+  currentUserId: string;
 }
 
-export function SidebarClient({ initialFriends, initialGroups }: SidebarProps) {
+export function SidebarClient({
+  initialFriends,
+  initialGroups,
+  currentUserId,
+}: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<SidebarContact[]>([]);
   const pathname = usePathname();
@@ -56,29 +65,50 @@ export function SidebarClient({ initialFriends, initialGroups }: SidebarProps) {
       )
         return;
 
-      if ("type" in payload && payload.type === "group-created") {
-        const { group } = payload as unknown as { type: string; group: Group };
+      if (isGroupCreatedEvent(payload)) {
+        const { group } = payload;
         setGroups((prev) => {
-          if (prev.some((g) => g.id === group.id)) return prev; // avoid duplicate
+          if (prev.some((g) => g.id === group.id)) return prev;
           return [group, ...prev];
         });
         return;
       }
 
-      // Group events
-      if ("groupId" in payload) {
-        const msg = payload as unknown as { type?: string; groupId: string };
+      if (isGroupUpdatedEvent(payload)) {
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === payload.group.id
+              ? {
+                  ...g,
+                  name: payload.group.name,
+                  avatarKey: payload.group.avatarKey,
+                }
+              : g,
+          ),
+        );
+        return;
+      }
 
-        // Group was deleted — remove from sidebar and redirect if currently viewing it
-        if (msg.type === "group-deleted") {
-          setGroups((prev) => prev.filter((g) => g.id !== msg.groupId));
-          if (pathnameRef.current === `/groups/${msg.groupId}`) {
+      if (isGroupDeletedEvent(payload)) {
+        setGroups((prev) => prev.filter((g) => g.id !== payload.groupId));
+        if (pathnameRef.current === `/groups/${payload.groupId}`) {
+          router.push("/");
+        }
+        return;
+      }
+
+      if (isGroupMemberRemovedEvent(payload)) {
+        if (payload.memberId === currentUserId) {
+          setGroups((prev) => prev.filter((g) => g.id !== payload.groupId));
+          if (pathnameRef.current === `/groups/${payload.groupId}`) {
             router.push("/");
           }
-          return;
         }
+        return;
+      }
 
-        // Group message unread bump
+      if ("groupId" in payload) {
+        const msg = payload as unknown as { type?: string; groupId: string };
         const currentGroupId = pathnameRef.current.split("/").pop();
         if (msg.groupId !== currentGroupId) {
           setGroups((prev) =>
@@ -109,7 +139,7 @@ export function SidebarClient({ initialFriends, initialGroups }: SidebarProps) {
       }
     });
     return remove;
-  }, [addListener, pathname]);
+  }, [addListener, currentUserId]);
 
   useEffect(() => {
     const currentChatId = pathname.split("/").pop();
@@ -175,44 +205,6 @@ export function SidebarClient({ initialFriends, initialGroups }: SidebarProps) {
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, friends, router]);
-
-  // Group rename
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { groupId, name } = (
-        e as CustomEvent<{ groupId: string; name: string }>
-      ).detail;
-      setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, name } : g)),
-      );
-    };
-    window.addEventListener("group:renamed", handler);
-    return () => window.removeEventListener("group:renamed", handler);
-  }, []);
-
-  // Group avatar updated
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { groupId, avatarKey } = (
-        e as CustomEvent<{ groupId: string; avatarKey: string }>
-      ).detail;
-      setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, avatarKey } : g)),
-      );
-    };
-    window.addEventListener("group:avatar-updated", handler);
-    return () => window.removeEventListener("group:avatar-updated", handler);
-  }, []);
-
-  // Group deleted
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { groupId } = (e as CustomEvent<{ groupId: string }>).detail;
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-    };
-    window.addEventListener("group:deleted", handler);
-    return () => window.removeEventListener("group:deleted", handler);
-  }, []);
 
   const filteredFriends = useMemo(() => {
     if (!searchQuery.trim()) return friends;

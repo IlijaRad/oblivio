@@ -13,6 +13,18 @@ export type SeenEvent = {
   upTo: number;
 };
 
+export type GroupMessageEvent = {
+  type: "group-message";
+  id: string;
+  groupId: string;
+  fromUserId: string;
+  body: string;
+  createdAt: number;
+  editedAt: null;
+  reactions: Record<string, { userId: string }[]>;
+  attachment: null;
+};
+
 export type FriendEvent = {
   type: "friend";
   event:
@@ -69,12 +81,48 @@ export type GroupCreatedEvent = {
   group: Group;
 };
 
+export type GroupUpdatedEvent = {
+  type: "group-updated";
+  group: {
+    id: string;
+    name: string;
+    avatarKey: string | null;
+    updatedAt: number;
+  };
+  updatedBy: string;
+};
+
+export type GroupDeletedEvent = {
+  type: "group-deleted";
+  groupId: string;
+  deletedBy: string;
+};
+
+export type GroupMembersAddedEvent = {
+  type: "group-members-added";
+  groupId: string;
+  memberIds: string[];
+  addedBy: string;
+};
+
+export type GroupMemberRemovedEvent = {
+  type: "group-member-removed";
+  groupId: string;
+  memberId: string;
+  removedBy: string;
+};
+
 export type WebSocketPayload =
   | MessageEvent
   | SeenEvent
   | FriendEvent
   | CallEvent
-  | GroupCreatedEvent;
+  | GroupCreatedEvent
+  | GroupUpdatedEvent
+  | GroupDeletedEvent
+  | GroupMembersAddedEvent
+  | GroupMemberRemovedEvent
+  | GroupMessageEvent;
 
 export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
   const callTypes = [
@@ -87,6 +135,23 @@ export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
     "call-cancel",
   ];
   return "type" in payload && callTypes.includes(payload.type as string);
+}
+
+export function isGroupMembersAddedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMembersAddedEvent {
+  return payload.type === "group-members-added";
+}
+export function isGroupMemberRemovedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMemberRemovedEvent {
+  return payload.type === "group-member-removed";
+}
+
+export function isGroupMessageEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageEvent {
+  return payload.type === "group-message";
 }
 
 export function isSeenEvent(payload: WebSocketPayload): payload is SeenEvent {
@@ -103,6 +168,24 @@ export function isMessageEvent(
   payload: WebSocketPayload,
 ): payload is MessageEvent {
   return "id" in payload && "fromUserId" in payload && "toUserId" in payload;
+}
+
+export function isGroupCreatedEvent(
+  payload: WebSocketPayload,
+): payload is GroupCreatedEvent {
+  return payload.type === "group-created";
+}
+
+export function isGroupUpdatedEvent(
+  payload: WebSocketPayload,
+): payload is GroupUpdatedEvent {
+  return payload.type === "group-updated";
+}
+
+export function isGroupDeletedEvent(
+  payload: WebSocketPayload,
+): payload is GroupDeletedEvent {
+  return payload.type === "group-deleted";
 }
 
 export function connectWebSocket(token: string) {

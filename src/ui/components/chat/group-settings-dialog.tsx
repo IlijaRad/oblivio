@@ -84,6 +84,7 @@ export default function GroupSettingsDialog({
   // Reset temporary UI states when dialog closes (exactly like NewGroupDialog)
   useEffect(() => {
     if (!open) {
+      setGroupName(group.name || "");
       setShowAddMembers(false);
       setAddSearch("");
       setSelectedNewMembers(new Set());
@@ -93,6 +94,10 @@ export default function GroupSettingsDialog({
       setImgEl(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    setMembers(group.members);
+  }, [group.members]);
 
   // --- Avatar helpers (exactly the same as before) ---
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,11 +231,6 @@ export default function GroupSettingsDialog({
       }
       setAvatarKey(presign.key);
       onGroupUpdated?.({ ...group, members, avatarKey: presign.key });
-      window.dispatchEvent(
-        new CustomEvent("group:avatar-updated", {
-          detail: { groupId: group.id, avatarKey: presign.key },
-        }),
-      );
       toast.success("Group picture updated");
     } catch (e) {
       console.error(e);
@@ -302,11 +302,6 @@ export default function GroupSettingsDialog({
     onGroupUpdated?.({ ...group, name: groupName.trim() });
     onGroupRenamed?.(group.id, groupName.trim());
     toast.success("Group name updated");
-    window.dispatchEvent(
-      new CustomEvent("group:renamed", {
-        detail: { groupId: group.id, name: groupName.trim() },
-      }),
-    );
   };
 
   const handleDeleteGroup = async () => {
@@ -315,11 +310,6 @@ export default function GroupSettingsDialog({
       toast.error(result.error);
       return;
     }
-    window.dispatchEvent(
-      new CustomEvent("group:deleted", {
-        detail: { groupId: group.id },
-      }),
-    );
     toast.success("Group deleted");
     router.push("/");
   };
@@ -530,9 +520,12 @@ export default function GroupSettingsDialog({
                                 onClick={() =>
                                   setSelectedNewMembers((prev) => {
                                     const next = new Set(prev);
-                                    next.has(c.id)
-                                      ? next.delete(c.id)
-                                      : next.add(c.id);
+                                    if (next.has(c.id)) {
+                                      next.delete(c.id);
+                                    } else {
+                                      next.add(c.id);
+                                    }
+
                                     return next;
                                   })
                                 }

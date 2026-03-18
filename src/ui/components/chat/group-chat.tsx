@@ -1,7 +1,11 @@
 "use client";
 
 import { useWebSocket } from "@/context/WebSocketProvider";
-import { getGroupChat, sendGroupMessage } from "@/lib/actions/groups/actions";
+import {
+  getGroup,
+  getGroupChat,
+  sendGroupMessage,
+} from "@/lib/actions/groups/actions";
 import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
 import {
   GroupDetail,
@@ -9,8 +13,14 @@ import {
   SidebarContact,
   User,
 } from "@/lib/definitions";
+import {
+  isGroupMemberRemovedEvent,
+  isGroupMembersAddedEvent,
+  isGroupMessageEvent,
+} from "@/lib/websocket";
 import ChatInput from "@/ui/components/chat/chat-input";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import GroupChatHeader from "./group-chat-header";
@@ -78,6 +88,7 @@ export default function GroupChat({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [theme, setTheme] = useState<Theme>("default");
+  const { push } = useRouter();
 
   useEffect(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
@@ -107,19 +118,40 @@ export default function GroupChat({
 
   // Listen for real-time group messages
   useEffect(() => {
-    const remove = addListener((payload) => {
-      // Group messages come with groupId field
+    const remove = addListener(async (payload) => {
       if (!("groupId" in payload)) return;
-      const msg = payload as unknown as GroupMessage;
-      if (msg.groupId !== group.id) return;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-      setTimeout(() => scrollToBottom(), 50);
+      if ((payload as { groupId: string }).groupId !== group.id) return;
+
+      if (isGroupMemberRemovedEvent(payload)) {
+        if (payload.memberId === currentUser.id) {
+          push("/");
+          return;
+        }
+        setGroup((prev) => ({
+          ...prev,
+          members: prev.members.filter((m) => m.userId !== payload.memberId),
+        }));
+        return;
+      }
+
+      if (isGroupMembersAddedEvent(payload)) {
+        const updated = await getGroup(payload.groupId);
+        if ("error" in updated || "unauthorized" in updated) return;
+        setGroup(updated as GroupDetail);
+        return;
+      }
+
+      if (isGroupMessageEvent(payload)) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === payload.id)) return prev;
+          return [...prev, payload as unknown as GroupMessage];
+        });
+        setTimeout(() => scrollToBottom(), 50);
+        return;
+      }
     });
     return remove;
-  }, [group.id, addListener]);
+  }, [group.id, addListener, currentUser.id]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
