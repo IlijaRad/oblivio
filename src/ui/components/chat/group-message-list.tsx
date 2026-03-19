@@ -13,7 +13,8 @@ import {
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as Popover from "@radix-ui/react-popover";
 import { IconMoodSmile, IconPencil, IconTrash } from "@tabler/icons-react";
-import EmojiPicker from "emoji-picker-react";
+import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
+import { useTheme } from "next-themes";
 import React, {
   Dispatch,
   SetStateAction,
@@ -75,6 +76,8 @@ function ReactionPopover({
 }) {
   const [open, setOpen] = useState(false);
   const isFirefox = useIsFirefox();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -110,6 +113,7 @@ function ReactionPopover({
               searchDisabled
               height={380}
               width={300}
+              theme={isDark ? EmojiTheme.DARK : EmojiTheme.LIGHT}
             />
           ) : (
             <EmojiPicker
@@ -124,6 +128,7 @@ function ReactionPopover({
                 onReact(messageId, d.emoji);
                 setOpen(false);
               }}
+              theme={isDark ? EmojiTheme.DARK : EmojiTheme.LIGHT}
             />
           )}
         </Popover.Content>
