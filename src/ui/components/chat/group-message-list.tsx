@@ -403,7 +403,7 @@ export function GroupMessageList({
               )}
 
               <div
-                className={`flex gap-2 items-center ${isMine ? "justify-end" : "justify-start"} max-w-full`}
+                className={`flex gap-2 items-center ${isMine ? "justify-end" : "justify-start"} w-full`}
               >
                 {!isMine && (
                   <div className="size-11 shrink-0 rounded-md bg-black/5 dark:bg-white/5 flex items-center justify-center relative overflow-hidden border border-black/5 dark:border-white/5 shadow-sm">
@@ -430,7 +430,7 @@ export function GroupMessageList({
                   />
                 )}
 
-                <div className="flex flex-col shrink-0 max-w-[calc(100%-6rem)] md:max-w-[calc(100%-5.5rem)]">
+                <div className="flex flex-col shrink-0 max-w-[calc(100%-6rem)] md:max-w-[65%]">
                   <ContextMenu.Root>
                     <ContextMenu.Trigger asChild>
                       <div
@@ -471,7 +471,7 @@ export function GroupMessageList({
                           </div>
                         ) : (
                           <div
-                            className={`rounded-2xl px-4 py-3 text-sm ${
+                            className={`rounded-2xl px-4 py-3 ${
                               isMine
                                 ? `${styles.sent} ${styles.sentText}`
                                 : `${styles.received} ${styles.receivedText}`
@@ -483,7 +483,9 @@ export function GroupMessageList({
                                 apiBase={apiBase}
                               />
                             ) : (
-                              <>{linkify(msg.body)}</>
+                              <p className="text-[15px] leading-relaxed break-all">
+                                {linkify(msg.body)}
+                              </p>
                             )}
                             <div className="flex items-center justify-end gap-1.5 mt-1">
                               <span className="text-[10px] opacity-70">
@@ -638,7 +640,7 @@ function AttachmentPreview({
           alt={attachment.name ?? "image"}
           width={260}
           height={260}
-          className="rounded-lg object-cover max-w-wull"
+          className="rounded-lg object-cover max-w-full"
         />
       </div>
     );
