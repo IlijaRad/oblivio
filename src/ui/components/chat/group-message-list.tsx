@@ -430,7 +430,7 @@ export function GroupMessageList({
                   />
                 )}
 
-                <div className="flex flex-col max-w-[72%] md:max-w-[60%]">
+                <div className="flex flex-col shrink-0 max-w-[calc(100%-6rem)] md:max-w-[calc(100%-5.5rem)]">
                   <ContextMenu.Root>
                     <ContextMenu.Trigger asChild>
                       <div
@@ -632,13 +632,15 @@ function AttachmentPreview({
   const url = `${apiBase}/uploads/view?key=${encodeURIComponent(attachment.key)}`;
   if (attachment.type === "image") {
     return (
-      <Image
-        src={url}
-        alt={attachment.name ?? "image"}
-        width={240}
-        height={180}
-        className="rounded-lg object-cover max-w-60"
-      />
+      <div className="relative overflow-hidden rounded-xl max-w-full md:max-w-65">
+        <Image
+          src={url}
+          alt={attachment.name ?? "image"}
+          width={260}
+          height={260}
+          className="rounded-lg object-cover max-w-wull"
+        />
+      </div>
     );
   }
   if (attachment.type === "audio") {
@@ -649,7 +651,17 @@ function AttachmentPreview({
     );
   }
   if (attachment.type === "video") {
-    return <video controls src={url} className="rounded-lg max-w-60" />;
+    return (
+      <div className="relative overflow-hidden rounded-xl max-w-65">
+        <video
+          src={url}
+          controls
+          width={260}
+          height={260}
+          className="object-cover rounded-lg"
+        />
+      </div>
+    );
   }
   return (
     <a

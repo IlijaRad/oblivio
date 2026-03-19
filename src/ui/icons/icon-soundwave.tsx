@@ -3,7 +3,7 @@ import { ComponentProps } from "react";
 export default function IconSoundwave({ ...props }: ComponentProps<"svg">) {
   return (
     <svg
-      width="190"
+      width="160"
       height="32"
       viewBox="0 0 190 32"
       fill="none"
