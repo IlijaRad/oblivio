@@ -2,6 +2,7 @@
 
 import { useWebSocket } from "@/context/WebSocketProvider";
 import { searchFriends } from "@/lib/actions/friends/search";
+import { getGroup } from "@/lib/actions/groups/actions";
 import { MissedCallEvent } from "@/lib/calls";
 import { Group, SidebarContact } from "@/lib/definitions";
 import {
@@ -10,6 +11,8 @@ import {
   isGroupCreatedEvent,
   isGroupDeletedEvent,
   isGroupMemberRemovedEvent,
+  isGroupMembersAddedEvent,
+  isGroupMessageEvent,
   isGroupUpdatedEvent,
   isMessageEvent,
   isSeenEvent,
@@ -107,13 +110,26 @@ export function SidebarClient({
         return;
       }
 
-      if ("groupId" in payload) {
-        const msg = payload as unknown as { type?: string; groupId: string };
+      if (isGroupMembersAddedEvent(payload)) {
+        if (payload.memberIds.includes(currentUserId)) {
+          getGroup(payload.groupId).then((result) => {
+            if (!("error" in result) && !("unauthorized" in result)) {
+              setGroups((prev) => {
+                if (prev.some((g) => g.id === payload.groupId)) return prev;
+                return [result as Group, ...prev];
+              });
+            }
+          });
+        }
+        return;
+      }
+
+      if (isGroupMessageEvent(payload)) {
         const currentGroupId = pathnameRef.current.split("/").pop();
-        if (msg.groupId !== currentGroupId) {
+        if (payload.groupId !== currentGroupId) {
           setGroups((prev) =>
             prev.map((g) =>
-              g.id === msg.groupId
+              g.id === payload.groupId
                 ? { ...g, unreadCount: (g.unreadCount || 0) + 1 }
                 : g,
             ),
@@ -122,6 +138,10 @@ export function SidebarClient({
         return;
       }
 
+      // Silently ignore all other group events (reactions, edits, deletes)
+      if ("groupId" in payload) return;
+
+      // 1:1 message unread
       if (!isMessageEvent(payload)) return;
       if (!payload.fromUserId) return;
 
