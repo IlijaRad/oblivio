@@ -411,7 +411,6 @@ function GroupItem({
 
   return (
     <Link href={`/groups/${group.id}`} className={containerClassName}>
-      {/* Avatar */}
       <div className="relative shrink-0">
         <div className="w-7.75 h-7.5 rounded-sm bg-[#F1F1F1] dark:bg-zinc-950 flex items-center justify-center overflow-hidden">
           {avatarUrl ? (
@@ -428,14 +427,12 @@ function GroupItem({
         </div>
       </div>
 
-      {/* Name */}
       <div className="flex-1 px-2 overflow-hidden">
         <div className="truncate text-[16px] text-[#1E1E1E] dark:text-white">
           {displayName}
         </div>
       </div>
 
-      {/* Unread badge */}
       {unread > 0 && (
         <div className="shrink-0 size-5 rounded-sm border border-[#C92100] bg-[rgba(201,33,0,0.3)] flex items-center justify-center mr-1">
           <span className="text-[14px] font-semibold text-[#C92100]">

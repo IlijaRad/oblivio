@@ -16,7 +16,10 @@ import {
 import {
   isGroupMemberRemovedEvent,
   isGroupMembersAddedEvent,
+  isGroupMessageDeletedEvent,
   isGroupMessageEvent,
+  isGroupMessageReactionEvent,
+  isGroupMessageUpdatedEvent,
 } from "@/lib/websocket";
 import ChatInput from "@/ui/components/chat/chat-input";
 import { useTheme } from "next-themes";
@@ -74,6 +77,8 @@ export default function GroupChat({
   const mimeTypeRef = useRef<string>("");
   const recordingStartTimeRef = useRef<number>(0);
 
+  const pendingReactionIds = useRef<Set<string>>(new Set());
+
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const { addListener } = useWebSocket();
@@ -116,7 +121,6 @@ export default function GroupChat({
     loadMessages();
   }, [group.id]);
 
-  // Listen for real-time group messages
   useEffect(() => {
     const remove = addListener(async (payload) => {
       if (!("groupId" in payload)) return;
@@ -138,6 +142,36 @@ export default function GroupChat({
         const updated = await getGroup(payload.groupId);
         if ("error" in updated || "unauthorized" in updated) return;
         setGroup(updated as GroupDetail);
+      }
+
+      if (isGroupMessageDeletedEvent(payload)) {
+        setMessages((prev) => prev.filter((m) => m.id !== payload.id));
+        return;
+      }
+
+      if (isGroupMessageUpdatedEvent(payload)) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === payload.id
+              ? { ...m, body: payload.body, editedAt: payload.editedAt }
+              : m,
+          ),
+        );
+        return;
+      }
+
+      if (isGroupMessageReactionEvent(payload)) {
+        const isPending = pendingReactionIds.current.has(payload.id);
+
+        if (isPending) {
+          return;
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === payload.id ? { ...m, reactions: payload.reactions } : m,
+          ),
+        );
         return;
       }
 
@@ -382,6 +416,8 @@ export default function GroupChat({
               currentUser={currentUser}
               apiBase={apiBase}
               styles={styles}
+              onMessagesChange={setMessages}
+              pendingReactionIds={pendingReactionIds}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">

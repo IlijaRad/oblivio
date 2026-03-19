@@ -28,7 +28,6 @@ export default function NewGroupDialog({
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
 
-  // Avatar upload state
   const fileInput = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
@@ -61,7 +60,6 @@ export default function NewGroupDialog({
     });
   };
 
-  // --- Avatar helpers ---
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -82,7 +80,6 @@ export default function NewGroupDialog({
       img.src = r.result as string;
     };
     r.readAsDataURL(f);
-    // Reset input so the same file can be re-selected
     e.target.value = "";
   };
 
@@ -180,7 +177,6 @@ export default function NewGroupDialog({
     setPreviewUrl(null);
   };
 
-  // --- Create group ---
   const handleCreate = async () => {
     const trimmed = groupName.trim();
     if (!trimmed) {
@@ -196,7 +192,6 @@ export default function NewGroupDialog({
     try {
       let avatarKey = null;
 
-      // Upload avatar if one was cropped
       if (croppedBlob) {
         const presign = await getAvatarPresignedUrl(
           croppedBlob.type,
@@ -239,7 +234,6 @@ export default function NewGroupDialog({
     }
   };
 
-  // Reset form on close
   useEffect(() => {
     if (!open) {
       setGroupName("");
@@ -295,9 +289,7 @@ export default function NewGroupDialog({
             />
 
             <div className="flex flex-col flex-1 overflow-y-auto pb-6">
-              {/* Group avatar + name row */}
               <div className="flex items-center gap-3">
-                {/* Avatar button */}
                 <button
                   type="button"
                   onClick={() => fileInput.current?.click()}
@@ -314,7 +306,6 @@ export default function NewGroupDialog({
                         className="object-cover w-full h-full"
                         unoptimized
                       />
-                      {/* Hover overlay */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <IconUpload className="text-white w-5 h-5" />
                       </div>
@@ -330,7 +321,6 @@ export default function NewGroupDialog({
                   )}
                 </button>
 
-                {/* Name input */}
                 <div className="flex-1">
                   <label className="text-sm text-gray-700 font-medium dark:text-gray-300 mb-1 block">
                     Group name <span className="text-[#944C16]">*</span>
@@ -362,7 +352,6 @@ export default function NewGroupDialog({
                 aria-hidden
               />
 
-              {/* Search */}
               <div className="relative">
                 <input
                   type="text"
@@ -458,7 +447,6 @@ export default function NewGroupDialog({
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Crop dialog — rendered outside the main dialog to avoid z-index stacking issues */}
       <Dialog.Root
         open={cropOpen}
         onOpenChange={(o) => {

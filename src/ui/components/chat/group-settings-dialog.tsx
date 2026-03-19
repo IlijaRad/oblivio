@@ -25,7 +25,7 @@ interface GroupSettingsDialogProps {
   apiBase?: string;
   onGroupUpdated?: (group: GroupDetail) => void;
   onGroupRenamed?: (groupId: string, name: string) => void;
-  open: boolean; // ← controlled by parent (GroupChatHeader)
+  open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -54,7 +54,6 @@ export default function GroupSettingsDialog({
     group.avatarKey ?? null,
   );
 
-  // Avatar crop state
   const fileInput = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
@@ -81,7 +80,6 @@ export default function GroupSettingsDialog({
   const isAdmin =
     members.find((m) => m.userId === currentUserId)?.isAdmin ?? false;
 
-  // Reset temporary UI states when dialog closes (exactly like NewGroupDialog)
   useEffect(() => {
     if (!open) {
       setGroupName(group.name || "");
@@ -99,7 +97,6 @@ export default function GroupSettingsDialog({
     setMembers(group.members);
   }, [group.members]);
 
-  // --- Avatar helpers (exactly the same as before) ---
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -237,11 +234,10 @@ export default function GroupSettingsDialog({
       toast.error("Upload failed. Please try again.");
     } finally {
       setIsUploadingAvatar(false);
-      setCropOpen(false); // triggers crop onOpenChange cleanup
+      setCropOpen(false);
     }
   };
 
-  // --- Member actions (exactly the same) ---
   const handleRemoveMember = async (userId: string) => {
     setIsRemoving(userId);
     try {
@@ -328,12 +324,10 @@ export default function GroupSettingsDialog({
         onChange={onFile}
       />
 
-      {/* Main Settings Dialog – exactly like NewGroupDialog */}
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-in fade-in" />
           <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-xl z-50 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <Dialog.Title className="text-xl font-medium dark:text-white">
                 Group Settings
@@ -353,9 +347,7 @@ export default function GroupSettingsDialog({
               aria-hidden
             />
 
-            {/* Scrollable body */}
             <div className="flex flex-col flex-1 overflow-y-auto pb-6">
-              {/* Avatar + name row (exactly as before) */}
               <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
                   <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 dark:bg-zinc-700 flex items-center justify-center">
@@ -423,7 +415,6 @@ export default function GroupSettingsDialog({
                 </div>
               </div>
 
-              {/* Members list (exactly as before) */}
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white py-5">
                   {members.length} Members
@@ -639,7 +630,6 @@ export default function GroupSettingsDialog({
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Crop Dialog – separate Root exactly like NewGroupDialog */}
       <Dialog.Root
         open={cropOpen}
         onOpenChange={(o) => {

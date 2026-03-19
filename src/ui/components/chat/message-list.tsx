@@ -111,7 +111,13 @@ export function MessageList({
                     })}
                   </span>
                   {isMe && (
-                    <span className="text-[10px] opacity-70">
+                    <span
+                      className={
+                        msg.readAt
+                          ? "text-[10px] text-green-400"
+                          : "text-[10px] opacity-70"
+                      }
+                    >
                       {msg.readAt ? "✓✓" : "✓"}
                     </span>
                   )}

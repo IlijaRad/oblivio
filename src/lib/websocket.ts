@@ -112,6 +112,34 @@ export type GroupMemberRemovedEvent = {
   removedBy: string;
 };
 
+export type GroupMessageUpdatedEvent = {
+  type: "group-message-updated";
+  id: string;
+  groupId: string;
+  fromUserId: string;
+  body: string;
+  editedAt: number;
+  reactions: Record<string, { userId: string }[]>;
+  attachment: null;
+};
+
+export type GroupMessageDeletedEvent = {
+  type: "group-message-deleted";
+  id: string;
+  groupId: string;
+  deletedBy: string;
+};
+
+export type GroupMessageReactionEvent = {
+  type: "group-message-reaction";
+  id: string;
+  groupId: string;
+  userId: string;
+  emoji: string;
+  reacted: boolean;
+  reactions: Record<string, { userId: string }[]>;
+};
+
 export type WebSocketPayload =
   | MessageEvent
   | SeenEvent
@@ -122,7 +150,26 @@ export type WebSocketPayload =
   | GroupDeletedEvent
   | GroupMembersAddedEvent
   | GroupMemberRemovedEvent
-  | GroupMessageEvent;
+  | GroupMessageEvent
+  | GroupMessageUpdatedEvent
+  | GroupMessageDeletedEvent
+  | GroupMessageReactionEvent;
+
+export function isGroupMessageUpdatedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageUpdatedEvent {
+  return payload.type === "group-message-updated";
+}
+export function isGroupMessageDeletedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageDeletedEvent {
+  return payload.type === "group-message-deleted";
+}
+export function isGroupMessageReactionEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageReactionEvent {
+  return payload.type === "group-message-reaction";
+}
 
 export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
   const callTypes = [

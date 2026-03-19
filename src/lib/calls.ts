@@ -391,7 +391,6 @@ class CallsManager {
             this.remoteVideo.srcObject = e.streams[0];
           }
 
-          // Listen for track mute/unmute/end to update state
           e.track.onmute = () => this.emitState();
           e.track.onunmute = () => this.emitState();
           e.track.onended = () => this.emitState();
@@ -461,7 +460,6 @@ class CallsManager {
             this.remoteVideo.srcObject = e.streams[0];
           }
 
-          // Listen for track mute/unmute/end to update state
           e.track.onmute = () => this.emitState();
           e.track.onunmute = () => this.emitState();
           e.track.onended = () => this.emitState();
@@ -635,10 +633,8 @@ class CallsManager {
         .find((s) => s.track?.kind === "video");
 
       if (sender) {
-        // Video call — just replace, no renegotiation needed
         await sender.replaceTrack(screenTrack);
       } else {
-        // Audio call — add new track, renegotiate
         this.pc.addTrack(screenTrack, this.localStream);
         await this.renegotiate();
       }

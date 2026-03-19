@@ -137,7 +137,7 @@ export default function Chat({
             if (isMissedCallMessage(m)) return m;
             return m.fromUserId === currentUser.id &&
               m.toUserId === String(payload.with) &&
-              m.createdAt <= payload.upTo
+              Number(m.createdAt) <= Number(payload.upTo)
               ? { ...m, readAt: new Date(payload.upTo).toISOString() }
               : m;
           }),
@@ -153,7 +153,7 @@ export default function Chat({
             payload.toUserId === currentUser.id);
         if (!isForThisChat) return;
         if (payload.fromUserId === contact.id)
-          markAsSeen(contact.id, payload.createdAt);
+          markAsSeen(contact.id, Number(payload.createdAt));
         setMessages((prev) => {
           if (prev.some((m) => m.id === payload.id)) return prev;
           return [...prev, payload];
@@ -394,6 +394,7 @@ export default function Chat({
       toast.error("Microphone access denied or not available");
     }
   };
+
   const stopRecording = () => {
     stopRequestedRef.current = true;
     if (timerRef.current) {

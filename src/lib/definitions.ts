@@ -41,18 +41,16 @@ export function isImageAttachment(attachment: Message["attachment"]) {
     typeof attachment.key === "string"
   );
 }
-
 export interface Message {
   id: string;
   fromUserId: string;
   toUserId: string;
   body: string;
-  createdAt: number;
-  readAt: number | string | null;
+  createdAt: string | number;
+  readAt: string | number | null;
+  editedAt?: string | number | null;
   attachment: { key: string; type: string; name: string; size: number };
-  type?: string;
-  with?: string;
-  upTo?: number;
+  reactions?: Record<string, { userId: string }[]>;
 }
 
 export interface ChatResponse {
@@ -125,6 +123,7 @@ export interface GroupMessage {
   fromUserId: string;
   body: string;
   createdAt: string;
+  editedAt: string | number | null;
   attachment?: GroupMessageAttachment | null;
-  reactions?: { emoji: string; userId: string }[];
+  reactions: Record<string, { userId: string }[]>;
 }
