@@ -13,16 +13,35 @@ export type SeenEvent = {
   upTo: number;
 };
 
-export type GroupMessageEvent = {
-  type: "group-message";
+export type MessageEvent = Message & {
+  type?: "message";
+};
+
+export type MessageUpdatedEvent = {
+  type: "message-updated";
   id: string;
-  groupId: string;
   fromUserId: string;
+  toUserId: string;
   body: string;
   createdAt: number;
-  editedAt: null;
-  reactions: Record<string, { userId: string }[]>;
+  editedAt: number;
+  reactions: Record<string, string[]>;
   attachment: null;
+};
+
+export type MessageDeletedEvent = {
+  type: "message-deleted";
+  id: string;
+  deletedBy: string;
+};
+
+export type MessageReactionEvent = {
+  type: "message-reaction";
+  id: string;
+  userId: string;
+  emoji: string;
+  reacted: boolean;
+  reactions: Record<string, string[]>;
 };
 
 export type FriendEvent = {
@@ -72,8 +91,16 @@ export type CallEvent =
     }
   | { type: "call-end" | "call-cancel"; callId: string; fromUserId?: string };
 
-export type MessageEvent = Message & {
-  type?: "message";
+export type GroupMessageEvent = {
+  type: "group-message";
+  id: string;
+  groupId: string;
+  fromUserId: string;
+  body: string;
+  createdAt: number;
+  editedAt: null;
+  reactions: Record<string, { userId: string }[]>;
+  attachment: null;
 };
 
 export type GroupCreatedEvent = {
@@ -142,6 +169,9 @@ export type GroupMessageReactionEvent = {
 
 export type WebSocketPayload =
   | MessageEvent
+  | MessageUpdatedEvent
+  | MessageDeletedEvent
+  | MessageReactionEvent
   | SeenEvent
   | FriendEvent
   | CallEvent
@@ -155,20 +185,43 @@ export type WebSocketPayload =
   | GroupMessageDeletedEvent
   | GroupMessageReactionEvent;
 
-export function isGroupMessageUpdatedEvent(
-  payload: WebSocketPayload,
-): payload is GroupMessageUpdatedEvent {
-  return payload.type === "group-message-updated";
+export function isSeenEvent(payload: WebSocketPayload): payload is SeenEvent {
+  return payload.type === "seen";
 }
-export function isGroupMessageDeletedEvent(
+
+export function isMessageEvent(
   payload: WebSocketPayload,
-): payload is GroupMessageDeletedEvent {
-  return payload.type === "group-message-deleted";
+): payload is MessageEvent {
+  return (
+    "id" in payload &&
+    "fromUserId" in payload &&
+    "toUserId" in payload &&
+    payload.type !== "message-updated"
+  );
 }
-export function isGroupMessageReactionEvent(
+
+export function isMessageUpdatedEvent(
   payload: WebSocketPayload,
-): payload is GroupMessageReactionEvent {
-  return payload.type === "group-message-reaction";
+): payload is MessageUpdatedEvent {
+  return payload.type === "message-updated";
+}
+
+export function isMessageDeletedEvent(
+  payload: WebSocketPayload,
+): payload is MessageDeletedEvent {
+  return payload.type === "message-deleted";
+}
+
+export function isMessageReactionEvent(
+  payload: WebSocketPayload,
+): payload is MessageReactionEvent {
+  return payload.type === "message-reaction";
+}
+
+export function isFriendEvent(
+  payload: WebSocketPayload,
+): payload is FriendEvent {
+  return payload.type === "friend";
 }
 
 export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
@@ -184,37 +237,10 @@ export function isCallEvent(payload: WebSocketPayload): payload is CallEvent {
   return "type" in payload && callTypes.includes(payload.type as string);
 }
 
-export function isGroupMembersAddedEvent(
-  payload: WebSocketPayload,
-): payload is GroupMembersAddedEvent {
-  return payload.type === "group-members-added";
-}
-export function isGroupMemberRemovedEvent(
-  payload: WebSocketPayload,
-): payload is GroupMemberRemovedEvent {
-  return payload.type === "group-member-removed";
-}
-
 export function isGroupMessageEvent(
   payload: WebSocketPayload,
 ): payload is GroupMessageEvent {
   return payload.type === "group-message";
-}
-
-export function isSeenEvent(payload: WebSocketPayload): payload is SeenEvent {
-  return payload.type === "seen";
-}
-
-export function isFriendEvent(
-  payload: WebSocketPayload,
-): payload is FriendEvent {
-  return payload.type === "friend";
-}
-
-export function isMessageEvent(
-  payload: WebSocketPayload,
-): payload is MessageEvent {
-  return "id" in payload && "fromUserId" in payload && "toUserId" in payload;
 }
 
 export function isGroupCreatedEvent(
@@ -235,17 +261,42 @@ export function isGroupDeletedEvent(
   return payload.type === "group-deleted";
 }
 
+export function isGroupMembersAddedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMembersAddedEvent {
+  return payload.type === "group-members-added";
+}
+
+export function isGroupMemberRemovedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMemberRemovedEvent {
+  return payload.type === "group-member-removed";
+}
+
+export function isGroupMessageUpdatedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageUpdatedEvent {
+  return payload.type === "group-message-updated";
+}
+
+export function isGroupMessageDeletedEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageDeletedEvent {
+  return payload.type === "group-message-deleted";
+}
+
+export function isGroupMessageReactionEvent(
+  payload: WebSocketPayload,
+): payload is GroupMessageReactionEvent {
+  return payload.type === "group-message-reaction";
+}
+
+// ── Connection ────────────────────────────────────────────────────────────────
+
 export function connectWebSocket(token: string) {
-  if (!WEBSOCKET_URL) {
-    throw new Error("WEBSOCKET_URL is not defined");
-  }
+  if (!WEBSOCKET_URL) throw new Error("WEBSOCKET_URL is not defined");
   if (centrifuge) return centrifuge;
-
-  centrifuge = new Centrifuge(WEBSOCKET_URL, {
-    token,
-    debug: true,
-  });
-
+  centrifuge = new Centrifuge(WEBSOCKET_URL, { token, debug: true });
   centrifuge.connect();
   return centrifuge;
 }
@@ -263,18 +314,16 @@ export function subscribeUserChannel(
   subscription = centrifuge.newSubscription(channel);
 
   subscription.on("publication", (ctx) => {
-    const payload = ctx.data as WebSocketPayload;
-    onMessage(payload);
+    onMessage(ctx.data as WebSocketPayload);
   });
 
   callsSub.on("publication", (ctx) => {
     const payload = ctx.data as WebSocketPayload;
     if ("fromUserId" in payload && payload.fromUserId === userId) return;
-    if (isCallEvent(payload)) {
-      calls.handleIncoming(payload);
-    }
+    if (isCallEvent(payload)) calls.handleIncoming(payload);
     onMessage(payload);
   });
+
   callsSub.subscribe();
   subscription.subscribe();
 }

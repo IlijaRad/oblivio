@@ -18,7 +18,10 @@ import { getOrCreateDeviceId } from "@/lib/device";
 import {
   isCallEvent,
   isFriendEvent,
+  isMessageDeletedEvent,
   isMessageEvent,
+  isMessageReactionEvent,
+  isMessageUpdatedEvent,
   isSeenEvent,
 } from "@/lib/websocket";
 import { useTheme } from "next-themes";
@@ -76,6 +79,7 @@ export default function Chat({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const stopRequestedRef = useRef(false);
+  const pendingReactionIds = useRef<Set<string>>(new Set());
 
   const { push } = useRouter();
   const { resolvedTheme } = useTheme();
@@ -92,6 +96,7 @@ export default function Chat({
   const [recordingTime, setRecordingTime] = useState(0);
   const [theme, setTheme] = useState<Theme>("default");
   const recordingStartTimeRef = useRef<number>(0);
+  const mimeTypeRef = useRef<string>("");
 
   const contactAvatar = contact.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(contact.avatarKey)}`
@@ -99,7 +104,6 @@ export default function Chat({
   const myAvatarUrl = currentUser.avatarKey
     ? `${apiBase}/uploads/view?key=${encodeURIComponent(currentUser.avatarKey)}`
     : null;
-  const mimeTypeRef = useRef<string>("");
 
   useEffect(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
@@ -130,6 +134,7 @@ export default function Chat({
 
   useEffect(() => {
     const remove = addListener((payload) => {
+      console.log("[1:1 WS]", payload);
       if (isSeenEvent(payload)) {
         if (String(payload.with) !== contact.id) return;
         setMessages((prev) =>
@@ -145,6 +150,44 @@ export default function Chat({
         return;
       }
       if (isFriendEvent(payload) || isCallEvent(payload)) return;
+
+      // Message deleted
+      if (isMessageDeletedEvent(payload)) {
+        setMessages((prev) => prev.filter((m) => m.id !== payload.id));
+        return;
+      }
+
+      // Message edited
+      if (isMessageUpdatedEvent(payload)) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === payload.id
+              ? { ...m, body: payload.body, editedAt: payload.editedAt }
+              : m,
+          ),
+        );
+        return;
+      }
+
+      // Message reaction — server returns string[] so normalise to {userId}[]
+      if (isMessageReactionEvent(payload)) {
+        if (pendingReactionIds.current.has(payload.id)) return;
+        const normalised = Object.fromEntries(
+          Object.entries(payload.reactions).map(([emoji, entries]) => [
+            emoji,
+            entries.map((e) => (typeof e === "string" ? { userId: e } : e)),
+          ]),
+        );
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === payload.id
+              ? { ...m, reactions: normalised as Message["reactions"] }
+              : m,
+          ),
+        );
+        return;
+      }
+
       if (isMessageEvent(payload)) {
         const isForThisChat =
           (payload.fromUserId === currentUser.id &&
@@ -228,10 +271,8 @@ export default function Chat({
   async function uploadToS3(file: File): Promise<{ key: string } | null> {
     try {
       let contentType = file.type || "application/octet-stream";
-      if (!contentType.startsWith("audio/")) {
+      if (!contentType.startsWith("audio/"))
         contentType = contentType.split(";")[0];
-      }
-
       const data = await getPresignedUploadUrl({
         folder: "uploads",
         contentType,
@@ -306,64 +347,50 @@ export default function Chat({
     }
     setRecordingTime(0);
     stopRequestedRef.current = false;
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
       if (stopRequestedRef.current) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
-
       recordingStartTimeRef.current = Date.now();
-
       const preferredTypes = [
         "audio/webm;codecs=opus",
         "audio/mp4",
         "audio/webm",
         "audio/ogg;codecs=opus",
       ];
-
       const mimeType =
         preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) ??
         null;
-
       if (!mimeType) {
         toast.error("Your browser does not support audio recording");
         return;
       }
-
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       mimeTypeRef.current = mimeType;
       audioChunksRef.current = [];
-
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
-
       mediaRecorder.onstop = async () => {
         const fullMimeType = mediaRecorder.mimeType;
         const audioBlob = new Blob(audioChunksRef.current, {
           type: fullMimeType,
         });
-
         if (audioBlob.size < 1000) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
-
         const durationSeconds =
           (Date.now() - recordingStartTimeRef.current) / 1000;
-
         let ext = "webm";
         if (fullMimeType.includes("mp4")) ext = "m4a";
         else if (fullMimeType.includes("ogg")) ext = "ogg";
-
         const file = new File([audioBlob], `voice-${Date.now()}.${ext}`, {
           type: fullMimeType,
         });
-
         const upload = await uploadToS3(file);
         if (upload) {
           const deviceId = await getOrCreateDeviceId();
@@ -374,21 +401,17 @@ export default function Chat({
             attachmentSize: file.size,
             attachmentDuration: Math.round(durationSeconds),
           });
-
-          if (!("error" in result)) {
+          if (!("error" in result))
             setMessages((prev) => [...prev, result as Message]);
-          }
         }
-
         stream.getTracks().forEach((t) => t.stop());
       };
-
       mediaRecorder.start();
       setIsRecording(true);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
+      timerRef.current = setInterval(
+        () => setRecordingTime((prev) => prev + 1),
+        1000,
+      );
     } catch (err) {
       console.error(err);
       toast.error("Microphone access denied or not available");
@@ -449,7 +472,6 @@ export default function Chat({
           onDeleteContact={handleDeleteContact}
           isEmpty={isEmpty}
         />
-
         <div
           ref={scrollRef}
           className="flex-1 overflow-y-auto py-5 px-4 scroll-smooth pt-20"
@@ -463,12 +485,13 @@ export default function Chat({
               myAvatarUrl={myAvatarUrl}
               apiBase={apiBase}
               styles={styles}
+              onMessagesChange={setMessages}
+              pendingReactionIds={pendingReactionIds}
             />
           ) : (
             <EmptyState contact={contact} styles={styles} />
           )}
         </div>
-
         <ChatInput
           inputValue={inputValue}
           setInputValue={setInputValue}

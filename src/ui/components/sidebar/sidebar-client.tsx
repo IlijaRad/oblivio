@@ -138,10 +138,8 @@ export function SidebarClient({
         return;
       }
 
-      // Silently ignore all other group events (reactions, edits, deletes)
       if ("groupId" in payload) return;
 
-      // 1:1 message unread
       if (!isMessageEvent(payload)) return;
       if (!payload.fromUserId) return;
 
