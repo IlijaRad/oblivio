@@ -49,7 +49,13 @@ export interface Message {
   createdAt: string | number;
   readAt: string | number | null;
   editedAt?: string | number | null;
-  attachment: { key: string; type: string; name: string; size: number };
+  attachment: {
+    key: string;
+    type: "image" | "video" | "audio" | "file";
+    name?: string;
+    size?: number;
+    duration?: number;
+  };
   reactions?: Record<string, { userId: string }[]>;
 }
 

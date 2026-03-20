@@ -30,23 +30,35 @@ const audioManager = {
   },
 };
 
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function AudioPlayer({
   src,
+  duration,
   className,
 }: {
   src: string;
+  duration?: number;
   className?: string;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(false);
+  const [audioDuration, setAudioDuration] = useState<number | null>(
+    duration ?? null,
+  );
   const loadedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intentionalStopRef = useRef(false);
 
+  const displayDuration = audioDuration ? formatDuration(audioDuration) : null;
+
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-
     if (isPlaying) {
       intentionalStopRef.current = true;
       audio.pause();
@@ -54,19 +66,16 @@ export default function AudioPlayer({
       setIsPlaying(false);
       return;
     }
-
     intentionalStopRef.current = true;
     audio.pause();
     audio.currentTime = 0;
     audio.src = src;
     audio.load();
     loadedRef.current = true;
-
     audioManager.register(audio);
     window.dispatchEvent(
       new CustomEvent("audioplayer:play", { detail: { src } }),
     );
-
     audio
       .play()
       .then(() => {
@@ -104,6 +113,13 @@ export default function AudioPlayer({
       <audio
         ref={audioRef}
         preload="none"
+        onLoadedMetadata={() => {
+          if (audioDuration !== null) return;
+          const audio = audioRef.current;
+          if (audio && isFinite(audio.duration)) {
+            setAudioDuration(audio.duration);
+          }
+        }}
         onEnded={() => {
           const audio = audioRef.current;
           if (audio) audioManager.unregister(audio);
@@ -114,9 +130,7 @@ export default function AudioPlayer({
             intentionalStopRef.current = false;
             return;
           }
-          if (loadedRef.current) {
-            setError(true);
-          }
+          if (loadedRef.current) setError(true);
         }}
         className="hidden"
       />
@@ -133,6 +147,11 @@ export default function AudioPlayer({
         {isPlaying ? <IconPlayerStopFilled /> : <IconPlayerPlayFilled />}
       </IconButton>
       <IconSoundwave />
+      {displayDuration && (
+        <span className="text-[11px] opacity-60 tabular-nums shrink-0">
+          {displayDuration}
+        </span>
+      )}
     </div>
   );
 }

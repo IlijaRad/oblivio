@@ -336,6 +336,8 @@ export default function GroupChat({
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        const durationSeconds =
+          (Date.now() - recordingStartTimeRef.current) / 1000;
 
         let ext = "webm";
         if (fullMimeType.includes("mp4")) ext = "m4a";
@@ -350,6 +352,7 @@ export default function GroupChat({
             attachmentType: "audio",
             attachmentName: file.name,
             attachmentSize: file.size,
+            attachmentDuration: Math.floor(durationSeconds),
           });
           if (!("error" in result)) {
             setMessages((prev) => {

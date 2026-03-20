@@ -134,7 +134,6 @@ export default function Chat({
 
   useEffect(() => {
     const remove = addListener((payload) => {
-      console.log("[1:1 WS]", payload);
       if (isSeenEvent(payload)) {
         if (String(payload.with) !== contact.id) return;
         setMessages((prev) =>
@@ -142,7 +141,7 @@ export default function Chat({
             if (isMissedCallMessage(m)) return m;
             return m.fromUserId === currentUser.id &&
               m.toUserId === String(payload.with) &&
-              Number(m.createdAt) <= Number(payload.upTo)
+              new Date(m.createdAt).getTime() <= Number(payload.upTo)
               ? { ...m, readAt: new Date(payload.upTo).toISOString() }
               : m;
           }),
@@ -151,13 +150,11 @@ export default function Chat({
       }
       if (isFriendEvent(payload) || isCallEvent(payload)) return;
 
-      // Message deleted
       if (isMessageDeletedEvent(payload)) {
         setMessages((prev) => prev.filter((m) => m.id !== payload.id));
         return;
       }
 
-      // Message edited
       if (isMessageUpdatedEvent(payload)) {
         setMessages((prev) =>
           prev.map((m) =>
@@ -169,7 +166,6 @@ export default function Chat({
         return;
       }
 
-      // Message reaction — server returns string[] so normalise to {userId}[]
       if (isMessageReactionEvent(payload)) {
         if (pendingReactionIds.current.has(payload.id)) return;
         const normalised = Object.fromEntries(
@@ -399,7 +395,7 @@ export default function Chat({
             attachmentType: "audio",
             attachmentName: file.name,
             attachmentSize: file.size,
-            attachmentDuration: Math.round(durationSeconds),
+            attachmentDuration: Math.floor(durationSeconds),
           });
           if (!("error" in result))
             setMessages((prev) => [...prev, result as Message]);

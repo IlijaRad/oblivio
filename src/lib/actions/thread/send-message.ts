@@ -18,11 +18,7 @@ export async function sendMessage(
 ) {
   const headers = await getDefaultHeaders();
   const bearer = (await cookies()).get(AUTHENTICATION_COOKIE_NAME)?.value ?? "";
-  const payload = {
-    toUserId,
-    body,
-    deviceId,
-  };
+  const payload: Record<string, unknown> = { toUserId, body, deviceId };
 
   if (attachmentData) {
     Object.assign(payload, {
@@ -30,6 +26,7 @@ export async function sendMessage(
       attachmentType: attachmentData.attachmentType,
       attachmentName: attachmentData.attachmentName,
       attachmentSize: attachmentData.attachmentSize,
+      attachmentDuration: attachmentData.attachmentDuration,
     });
   }
 

@@ -761,7 +761,11 @@ function MessageContent({
     if (!viewUrl) return <Skeleton className="w-55 h-12" />;
     return (
       <div className={twMerge("my-2", className)}>
-        <AudioPlayer src={viewUrl} className={className} />
+        <AudioPlayer
+          src={viewUrl}
+          duration={message.attachment?.duration ?? undefined}
+          className={className}
+        />
         {message.body && (
           <p className="mt-2 text-[15px] leading-relaxed break-all">
             {linkify(message.body)}

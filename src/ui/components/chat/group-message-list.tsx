@@ -653,7 +653,7 @@ function AttachmentPreview({
   if (attachment.type === "audio") {
     return (
       <div className="my-2">
-        <AudioPlayer src={url} />
+        <AudioPlayer src={url} duration={attachment.duration ?? undefined} />
       </div>
     );
   }
