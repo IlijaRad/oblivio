@@ -15,27 +15,18 @@ export default async function Layout({
 }>) {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value;
-
   const [user, friendRequests, contactsList] = await Promise.all([
     getUser(),
     getFullFriendRequests(),
     getContacts(),
   ]);
-
-  if (user && "unauthorized" in user) {
+  if (user && "licenseRequired" in user) redirect("/license");
+  if (user && "unauthorized" in user) redirect("/api/auth/logout");
+  if (!user || "errors" in user) redirect("/api/auth/logout");
+  if (friendRequests && "unauthorized" in friendRequests)
     redirect("/api/auth/logout");
-  }
-
-  if (!user || "errors" in user) {
-    redirect("/api/auth/logout");
-  }
-
-  if (friendRequests && "unauthorized" in friendRequests) {
-    redirect("/api/auth/logout");
-  }
 
   const count = Array.isArray(friendRequests) ? friendRequests.length : 0;
-
   const contacts = Array.isArray(contactsList)
     ? contactsList.map((c) => ({ id: c.id, username: c.username }))
     : [];

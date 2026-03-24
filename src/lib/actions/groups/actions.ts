@@ -248,3 +248,19 @@ export async function deleteGroup(groupId: string) {
     return { error: "Network error" };
   }
 }
+
+export async function leaveGroup(groupId: string) {
+  try {
+    const response = await apiClient(`/groups/${groupId}/leave`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return { error: data.message || "Failed to leave group" };
+    }
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return { unauthorized: true };
+    return { error: "Network error" };
+  }
+}

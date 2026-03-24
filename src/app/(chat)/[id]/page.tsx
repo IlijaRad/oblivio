@@ -16,42 +16,23 @@ export default function Page(props: { params: Promise<{ id: string }> }) {
 
 async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
   const [chat, contactsList, user] = await Promise.all([
     getChat(id),
     getContacts(),
     getUser(),
   ]);
 
-  if (user && "unauthorized" in user) {
+  if (user && "licenseRequired" in user) redirect("/license");
+  if (user && "unauthorized" in user) redirect("/api/auth/logout");
+  if (chat && "unauthorized" in chat) redirect("/api/auth/logout");
+  if (contactsList && "unauthorized" in contactsList)
     redirect("/api/auth/logout");
-  }
-
-  if (chat && "unauthorized" in chat) {
-    redirect("/api/auth/logout");
-  }
-
-  if (contactsList && "unauthorized" in contactsList) {
-    redirect("/api/auth/logout");
-  }
-
-  if (!user || "errors" in user) {
-    redirect("/");
-  }
-
-  if (!chat || "errors" in chat) {
-    redirect("/");
-  }
-
-  if (!Array.isArray(contactsList)) {
-    redirect("/");
-  }
+  if (!user || "errors" in user) redirect("/");
+  if (!chat || "errors" in chat) redirect("/");
+  if (!Array.isArray(contactsList)) redirect("/");
 
   const currentContact = contactsList.find((contact) => contact.id === id);
-
-  if (!currentContact) {
-    redirect("/");
-  }
+  if (!currentContact) redirect("/");
 
   return <Chat currentUser={user} contact={currentContact} />;
 }

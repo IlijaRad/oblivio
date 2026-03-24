@@ -1,34 +1,26 @@
 "use server";
 
-import { apiClient, UnauthorizedError } from "@/lib/api-client";
-import { User } from "@/lib/definitions";
+import {
+  apiClient,
+  LicenseRequiredError,
+  UnauthorizedError,
+} from "@/lib/api-client";
+import { GetUserResult } from "@/lib/definitions";
 
-type Payload =
-  | User
-  | {
-      errors: {
-        user: string[];
-      };
-    }
-  | {
-      unauthorized: boolean;
-    };
-
-export async function getUser() {
+export async function getUser(): Promise<GetUserResult> {
   try {
-    const response = await apiClient("/users/me/", {
+    const response = await apiClient("/users/me", {
       next: { tags: ["profile"] },
     });
-
     if (!response.ok) {
       const { message } = await response.json();
       return { errors: { user: [message as string] } };
     }
-
-    const data = (await response.json()) as Payload;
-
-    return data;
+    return await response.json();
   } catch (error) {
+    if (error instanceof LicenseRequiredError) {
+      return { licenseRequired: true };
+    }
     if (error instanceof UnauthorizedError) {
       return { unauthorized: true };
     }

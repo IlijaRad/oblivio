@@ -8,6 +8,13 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class LicenseRequiredError extends Error {
+  constructor() {
+    super("Active license required");
+    this.name = "LicenseRequiredError";
+  }
+}
+
 export async function apiClient(endpoint: string, options: RequestInit = {}) {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value;
@@ -37,6 +44,16 @@ export async function apiClient(endpoint: string, options: RequestInit = {}) {
 
   if (response.status === 401) {
     throw new UnauthorizedError();
+  }
+
+  if (response.status === 403) {
+    const data = await response.json().catch(() => ({}));
+    const msg: string = Array.isArray(data?.message)
+      ? data.message.join(" ")
+      : String(data?.message || "");
+    if (msg.toLowerCase().includes("active license")) {
+      throw new LicenseRequiredError();
+    }
   }
 
   return response;

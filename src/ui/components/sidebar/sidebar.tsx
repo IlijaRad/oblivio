@@ -10,19 +10,14 @@ export async function Sidebar() {
   const [friendsList, contactsList, groupsList, currentUser] =
     await Promise.all([getFriends(), getContacts(), getGroups(), getUser()]);
 
-  if (friendsList && "unauthorized" in friendsList) {
+  if (currentUser && "licenseRequired" in currentUser) redirect("/license");
+  if (currentUser && "unauthorized" in currentUser)
     redirect("/api/auth/logout");
-  }
-  if (contactsList && "unauthorized" in contactsList) {
+  if (friendsList && "unauthorized" in friendsList)
     redirect("/api/auth/logout");
-  }
-  if (groupsList && "unauthorized" in groupsList) {
+  if (contactsList && "unauthorized" in contactsList)
     redirect("/api/auth/logout");
-  }
-
-  if (currentUser && "unauthorized" in currentUser) {
-    redirect("/api/auth/logout");
-  }
+  if (groupsList && "unauthorized" in groupsList) redirect("/api/auth/logout");
 
   let initialFriends: SidebarContact[] = [];
   if (Array.isArray(friendsList) && Array.isArray(contactsList)) {

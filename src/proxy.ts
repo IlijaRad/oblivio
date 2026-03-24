@@ -30,14 +30,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isPublicRoute =
+  const isAuthRoute =
     pathname.startsWith("/login") || pathname.startsWith("/register");
+  const isLicenseRoute = pathname.startsWith("/license");
 
-  if (!token && !isPublicRoute) {
+  if (!token && !isAuthRoute && !isLicenseRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (token && isPublicRoute) {
+  if (!token && isLicenseRoute) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (token && isAuthRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

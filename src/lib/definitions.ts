@@ -1,5 +1,4 @@
 export const AUTHENTICATION_COOKIE_NAME = "session";
-
 export type FormState = {
   errors?: {
     username?: string[];
@@ -12,7 +11,6 @@ export type FormState = {
     email?: string;
   };
 } | null;
-
 export interface Requester {
   id: string;
   username: string;
@@ -23,7 +21,6 @@ export interface Requester {
     name: string;
   };
 }
-
 export interface FriendRequest {
   id: string;
   requesterId: string;
@@ -33,7 +30,6 @@ export interface FriendRequest {
   updatedAt: string;
   requester: Requester;
 }
-
 export function isImageAttachment(attachment: Message["attachment"]) {
   return (
     !!attachment &&
@@ -58,14 +54,11 @@ export interface Message {
   };
   reactions?: Record<string, { userId: string }[]>;
 }
-
 export interface ChatResponse {
   items: Message[];
   nextCursor: string | null;
 }
-
 export type GetChatResult = ChatResponse | { errors: { server: string[] } };
-
 export type SidebarContact = {
   id: string;
   username: string;
@@ -74,7 +67,6 @@ export type SidebarContact = {
   since?: string;
   unreadCount?: number;
 };
-
 export interface User {
   id: string;
   username: string;
@@ -86,13 +78,11 @@ export interface User {
   e2eReady?: boolean;
   e2eUpdatedAt?: string;
 }
-
 export interface SelectedContact {
   id: string;
   username: string;
   avatarKey: string | null;
 }
-
 export interface GroupMember {
   userId: string;
   username: string;
@@ -100,7 +90,6 @@ export interface GroupMember {
   isAdmin?: boolean;
   joinedAt?: number;
 }
-
 export interface Group {
   id: string;
   name: string | null;
@@ -110,11 +99,9 @@ export interface Group {
   members?: GroupMember[];
   unreadCount?: number;
 }
-
 export interface GroupDetail extends Group {
   members: GroupMember[];
 }
-
 export interface GroupMessageAttachment {
   key: string;
   type: "image" | "video" | "audio" | "file";
@@ -122,7 +109,6 @@ export interface GroupMessageAttachment {
   size?: number;
   duration?: number;
 }
-
 export interface GroupMessage {
   id: string;
   groupId: string;
@@ -133,3 +119,9 @@ export interface GroupMessage {
   attachment?: GroupMessageAttachment | null;
   reactions: Record<string, { userId: string }[]>;
 }
+
+export type GetUserResult =
+  | User
+  | { unauthorized: true }
+  | { licenseRequired: true }
+  | { errors: { user: string[] } };

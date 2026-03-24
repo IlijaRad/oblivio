@@ -4,6 +4,7 @@ import { useWebSocket } from "@/context/WebSocketProvider";
 import {
   getGroup,
   getGroupChat,
+  leaveGroup,
   sendGroupMessage,
 } from "@/lib/actions/groups/actions";
 import { getPresignedUploadUrl } from "@/lib/actions/upload/presign";
@@ -162,11 +163,7 @@ export default function GroupChat({
 
       if (isGroupMessageReactionEvent(payload)) {
         const isPending = pendingReactionIds.current.has(payload.id);
-
-        if (isPending) {
-          return;
-        }
-
+        if (isPending) return;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === payload.id ? { ...m, reactions: payload.reactions } : m,
@@ -200,6 +197,19 @@ export default function GroupChat({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
+  };
+
+  const handleLeaveGroup = async () => {
+    try {
+      const result = await leaveGroup(group.id);
+      if (result && "error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      push("/");
+    } catch {
+      toast.error("Failed to leave group");
+    }
   };
 
   const handleSendMessage = async () => {
@@ -406,6 +416,7 @@ export default function GroupChat({
           currentUserId={currentUser.id}
           onGroupUpdated={setGroup}
           onGroupRenamed={onGroupRenamed}
+          onLeaveGroup={handleLeaveGroup}
         />
 
         <div

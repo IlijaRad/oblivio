@@ -15,25 +15,19 @@ import { ClientLayout } from "../(chat)/client-layout";
 export default async function Page() {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTHENTICATION_COOKIE_NAME)?.value;
-
   const [user, friendRequests, contactsList] = await Promise.all([
     getUser(),
     getFullFriendRequests(),
     getContacts(),
   ]);
 
-  if (user && "unauthorized" in user) {
+  if (user && "licenseRequired" in user) redirect("/license");
+  if (user && "unauthorized" in user) redirect("/api/auth/logout");
+  if (!user || "errors" in user) redirect("/api/auth/logout");
+  if (friendRequests && "unauthorized" in friendRequests)
     redirect("/api/auth/logout");
-  }
-  if (!user || "errors" in user) {
-    redirect("/api/auth/logout");
-  }
-  if (friendRequests && "unauthorized" in friendRequests) {
-    redirect("/api/auth/logout");
-  }
 
   const count = Array.isArray(friendRequests) ? friendRequests.length : 0;
-
   const contacts = Array.isArray(contactsList)
     ? contactsList.map((c) => ({ id: c.id, username: c.username }))
     : [];
@@ -43,7 +37,7 @@ export default async function Page() {
       <HeaderClient user={user} initialRequestCount={count} />
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-md mb-4 dark:bg-zinc-900 min-h-[calc(100dvh-94px)]">
-          <div className=" mx-auto px-5 py-6 md:px-8 md:py-8">
+          <div className="mx-auto px-5 py-6 md:px-8 md:py-8">
             <div className="flex items-center justify-between mb-8 md:mb-10 pb-6 border-b border-b-black/20 dark:border-b-white/20">
               <h1 className="text-xl md:text-[20px] font-normal text-brand-text">
                 My Profile

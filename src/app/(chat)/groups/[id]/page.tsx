@@ -22,6 +22,7 @@ async function GroupChatPage({ params }: { params: Promise<{ id: string }> }) {
     getFriends(),
   ]);
 
+  if (user && "licenseRequired" in user) redirect("/license");
   if (user && "unauthorized" in user) redirect("/api/auth/logout");
   if (group && "unauthorized" in group) redirect("/api/auth/logout");
   if (!user || "errors" in user) redirect("/");
