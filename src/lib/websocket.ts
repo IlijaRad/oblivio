@@ -291,12 +291,25 @@ export function isGroupMessageReactionEvent(
   return payload.type === "group-message-reaction";
 }
 
-// ── Connection ────────────────────────────────────────────────────────────────
+let isFirstConnect = true;
 
 export function connectWebSocket(token: string) {
   if (!WEBSOCKET_URL) throw new Error("WEBSOCKET_URL is not defined");
   if (centrifuge) return centrifuge;
-  centrifuge = new Centrifuge(WEBSOCKET_URL, { token, debug: true });
+  centrifuge = new Centrifuge(WEBSOCKET_URL, {
+    token,
+    minReconnectDelay: 1000,
+    maxReconnectDelay: 20000,
+    maxServerPingDelay: 10000,
+  });
+
+  centrifuge.on("connected", () => {
+    if (!isFirstConnect) {
+      window.dispatchEvent(new Event("ws:reconnected"));
+    }
+    isFirstConnect = false;
+  });
+
   centrifuge.connect();
   return centrifuge;
 }

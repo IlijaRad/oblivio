@@ -453,6 +453,23 @@ export default function Chat({
   const styles = themeStyles[theme];
   const isEmpty = messages.length === 0;
 
+  useEffect(() => {
+    const handler = async () => {
+      const response = (await getChat(contact.id)) as GetChatResult;
+
+      if (response && "items" in response) {
+        setMessages(response.items);
+        handleMarkAsSeen(response.items);
+        setTimeout(() => scrollToBottom(), 100);
+      } else if (response && "errors" in response) {
+        toast.error("Failed to load messages");
+      }
+    };
+
+    window.addEventListener("ws:reconnected", handler);
+    return () => window.removeEventListener("ws:reconnected", handler);
+  }, [contact.id]);
+
   return (
     <div className="flex-1 lg:mr-8">
       <div
