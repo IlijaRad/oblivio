@@ -250,7 +250,7 @@ export function SidebarClient({
           : "hidden lg:block pl-4 sm:pl-6",
       )}
     >
-      <div className="w-full h-full bg-white dark:bg-zinc-900 rounded-md flex flex-col">
+      <div className="w-full h-full bg-white dark:bg-zinc-900 rounded-md flex flex-col overflow-hidden">
         <div className="px-3 py-4 flex items-center justify-between">
           <h2 className="text-xl font-normal">Contacts</h2>
           <AddContactModal />
@@ -273,7 +273,7 @@ export function SidebarClient({
           </div>
         </div>
 
-        <div className="px-4 pb-6 flex flex-col min-h-0 gap-2">
+        <div className="px-4 pb-6 flex flex-col min-h-0 gap-2 overflow-y-auto flex-1">
           {!isSearching && (
             <NewGroupDialog contacts={friends} apiBase={apiBase} />
           )}
@@ -284,7 +284,7 @@ export function SidebarClient({
                 <>
                   <div className="border-t border-[#BABABA] mb-4"></div>
                   <div className="mb-3">
-                    <h2 className="text-[16px] font-semibold text-[#1E1E1E] leading-5">
+                    <h2 className="text-[16px] dark:text-white font-semibold text-[#1E1E1E] leading-5">
                       Your friends:
                     </h2>
                     <p className="text-[14px] font-normal text-[#989898] leading-5">
@@ -310,7 +310,7 @@ export function SidebarClient({
                 <>
                   <div className="border-t border-[#BABABA] mb-4" />
                   <div className="mb-3">
-                    <h2 className="text-[16px] font-semibold text-[#1E1E1E] leading-5">
+                    <h2 className="text-[16px] dark:text-white font-semibold text-[#1E1E1E] leading-5">
                       Groups:
                     </h2>
                   </div>
@@ -331,7 +331,7 @@ export function SidebarClient({
                 <>
                   <div className="border-t border-[#BABABA] mb-4" />
                   <div className="mb-3">
-                    <h2 className="text-[16px] font-semibold text-[#1E1E1E] leading-5">
+                    <h2 className="text-[16px] dark:text-white font-semibold text-[#1E1E1E] leading-5">
                       Add friends:
                     </h2>
                     <p className="text-[14px] font-normal text-[#989898] leading-5">
