@@ -260,7 +260,7 @@ export default function NewGroupDialog({
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Trigger asChild>
-          <button className="w-full mb-2 flex items-center gap-2 justify-center flex-1 px-4 py-3 dark:via-none dark:text-gray-950 bg-linear-to-r dark:to-white from-[#944C16] via-[#0D0D0F] via-[40.75%] to-[#0D0D0F] text-white rounded-md disabled:opacity-50 cursor-pointer">
+          <button className="w-full mb-2 flex items-center gap-2 justify-center px-4 py-3 dark:via-none dark:text-gray-950 bg-linear-to-r dark:to-white from-[#944C16] via-[#0D0D0F] via-[40.75%] to-[#0D0D0F] text-white rounded-md disabled:opacity-50 cursor-pointer">
             New group
             <IconUsers size={16} />
           </button>

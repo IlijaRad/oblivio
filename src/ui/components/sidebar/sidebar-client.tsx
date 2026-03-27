@@ -275,7 +275,9 @@ export function SidebarClient({
 
         <div className="px-4 pb-6 flex flex-col min-h-0 gap-2 overflow-y-auto flex-1">
           {!isSearching && (
-            <NewGroupDialog contacts={friends} apiBase={apiBase} />
+            <div className="shrink-0">
+              <NewGroupDialog contacts={friends} apiBase={apiBase} />
+            </div>
           )}
 
           {isSearching ? (
